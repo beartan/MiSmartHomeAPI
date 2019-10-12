@@ -6,6 +6,7 @@
 
 1. python-miio: https://github.com/rytilahti/python-miio
 2. Django
+3. Python3
 
 ## 使用
 
@@ -13,3 +14,6 @@
 python manage.py runserver 0.0.0.0:8000
 ```
 
+## 注意
+
+由于可以通过`GET`方法直接获取每个注册设备的信息，可能存在严重的安全隐患。
