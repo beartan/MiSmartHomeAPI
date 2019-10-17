@@ -18,5 +18,7 @@ from django.urls import path
 from . import view
 
 urlpatterns = [
-    path(r'', view.device),
+    path('', view.device),
+    path('<int:device_id>', view.device),
+    path('help', view.show_help),
 ]

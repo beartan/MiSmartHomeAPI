@@ -6,46 +6,52 @@ from django.http import HttpResponse, HttpResponseBadRequest
 import os
 import sys
 import json
+import multiprocessing
 
-device_dict = {}
+from miio import ceil
 
-def device(request):
+from . import manager
+
+ma = manager.DeviceManager()
+
+def device(request, device_id=None):
+    device_id = str(device_id)
     if request.method == 'PUT':
-        check = validate(request.PUT, ['localip', 'name', 'token'])
+        check = validate(request.PUT, ['device_id', 'token'])
         if check is not None:
             return check
-        attributes = ['name', 'token']
-        obj = {attr: request.PUT[attr] for attr in attributes}
-        obj['status'] = 0 # off
-        localip = request.PUT['localip']
-        device_dict[localip] = obj
-        return HttpResponse(help())
+        device_id = request.PUT.get('device_id')
+        attributes = ['token', 'name', 'localip', 'type']
+        device_param = {attr: request.PUT.get(attr) for attr in attributes}
+        ma.add_device(device_id, device_param)
+        return HttpResponse(ma.get_json_string(device_id))
     elif request.method == 'GET':
-        return HttpResponse(json.dumps(device_dict, indent=4))
+        return HttpResponse(ma.get_json_string(device_id))
     elif request.method == 'DELETE':
-        check = validate(request.DELETE, ['localip'])
-        if check is not None:
-            return check
-        localip = request.DELETE['localip']
-        if localip not in device_dict:
-            return HttpResponseBadRequest("localip[%s] has been not set.\n" % localip)
-        device_dict.pop(localip)
+        if not ma.registered(device_id):
+            return HttpResponseBadRequest("device has been not registered.\n")
+        ma.delete_device(device_id)
         return HttpResponse(help())
     elif request.method == 'POST':
-        check = validate(request.POST, ['localip'])
-        if check is not None:
-            return check
-        localip = request.POST['localip']
-        device = device_dict.get(localip)
-        if not device:
-            return HttpResponseBadRequest("localip[%s] has been not set.\n" % localip)
-        status_list = ['off', 'on']
+        if not ma.registered(device_id):
+            return HttpResponseBadRequest("device has been not registered.\n")
         status = request.POST.get('status')
+        status_list = ['off', 'on']
         if status not in status_list:
-            device['status'] = (device['status'] + 1) % 2
-            status = status_list[device['status']]
-        cmd = 'miceil --ip %s --token %s %s' % (localip, device['token'], status)
-        os.system(cmd)
+            s = (ma.get_status(device_id) + 1) % 2
+            ma.set_status(device_id, s)
+        else:
+            if status == status_list[ma.get_status(device_id)]:
+                return HttpResponse(help())
+            else:
+                s = (ma.get_status(device_id) + 1) % 2
+                ma.set_status(device_id, s)
+
+        device = ceil.Ceil(ma.get_localip(device_id), ma.get_token(device_id))
+        if s == 1:
+            device.on()
+        else:
+            device.off()
         return HttpResponse(help())
 
 def validate(request_method, requested):
@@ -54,23 +60,35 @@ def validate(request_method, requested):
             return HttpResponseBadRequest("Missing %s.\n"%key)
     return None
 
+def show_help(request):
+    return HttpResponse(help())
+
 def help():
     return '''
 HELP:
-    GET
-        - Description:  List devices infomation.
     PUT
         - Description:  Add a device. The default status of device is off.
+        - Path:
+            /
         - Form:
+            @device_id  Device Id
             @localip    IP address of device in LAN
             @token      Device token, which is allocated when the device connects to MI-HOME app
-            @name       Device name (this value is generally set in MI-HOME app)
+            @type       Device type (not necessary)
+            @name       Device name which is generally set in MI-HOME app (not necessary)
+    GET
+        - Description:  List devices infomation.
+        - Path: 
+            /                   List all devises infomation
+            /<int:device_id>    List device infomation corresponding to the device_id
     DELETE
-        - Description:  Delete a device.
-        - Form:
-            @localip    IP address of device in LAN
+        - Description:  Delete a device by device_id.
+        - Path:
+            /<int:device_id>
     POST
         - Description:  Given instructions, control device(Default switch on and off status).
+        - Path:
+            /<int:device_id>
         - Form:
             @localip    IP address of device in LAN
             @status     on or off(not necessary)
