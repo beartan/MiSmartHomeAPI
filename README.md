@@ -2,6 +2,11 @@
 
 基于miio协议（python-miio），Django后端的小米智能家居RESTful HTTP API。
 
+## 目前实现
+
+1. 定时监控局域网中的智能设备（只能拿到Device Id和Local Ip）
+2. 以REST APIs形式访问支持Wi-Fi的米家智能设备（台灯和插座）
+
 ## 环境要求
 
 1. python-miio: https://github.com/rytilahti/python-miio
