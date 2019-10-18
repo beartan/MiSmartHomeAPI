@@ -21,6 +21,8 @@ python manage.py runserver 0.0.0.0:8000
 
 ## 接口设计
 
+访问`/help`显示如下接口文档：
+
 ```
 PUT
     - Description:  Add a device. The default status of device is off.
