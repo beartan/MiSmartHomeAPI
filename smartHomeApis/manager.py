@@ -53,11 +53,10 @@ def discover(timeout, addr=None):
 
 def monitor_process(devices, interval=10):
     default_timeout = 5
-    timeout = max(default_timeout, (interval + 1) / 2)
-    sleep_time = max(0, interval - timeout)
+    sleep_time = max(0, interval - default_timeout)
     while True:
         sys.stdout.write(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())+'\n')
-        seen_devices = discover(timeout)
+        seen_devices = discover(default_timeout)
         for Id in seen_devices:
             dev = seen_devices.get(Id)
             if Id not in devices:
@@ -124,13 +123,13 @@ class DeviceManager(object):
             self._device[device_id] = copy.deepcopy(device_param)
             self.set_status(device_id, 0)
             self.set_inroom(device_id, 0)
+            self.set_type(device_id, miio.ceil.Ceil(self.get_localip(device_id), self.get_token(device_id)).info().__str__().split()[0])
         else:
             if device_param.get('token') and device_param.get('token') != self.get_token(device_id):
                 self.set_token(device_id, device_param['token'])
+                self.set_type(device_id, miio.ceil.Ceil(self.get_localip(device_id), self.get_token(device_id)).info().__str__().split()[0])
             if device_param.get('name'):
                 self.set_name(device_id, device_param['name'])
-            if device_param.get('type'):
-                self.set_type(device_id, device_param['type'])
 
     def get_device(self, device_id=None):
         if self.registered(device_id):
