@@ -37,23 +37,29 @@ def device(request, device_id=None):
     elif request.method == 'POST':
         if not ma.registered(device_id):
             return HttpResponseBadRequest("device has been not registered.\n")
+        if not ma.get_inroom(device_id):
+            return HttpResponseBadRequest("device not in room.\n")
+        if not ma.get_localip(device_id):
+            return HttpResponseBadRequest("the localip of the device has not been set.\n")
+        if not ma.get_token(device_id):
+            return HttpResponseBadRequest("the token of the device has not been set.\n")
         status = request.POST.get('status')
         status_list = ['off', 'on']
         if status not in status_list:
             s = (ma.get_status(device_id) + 1) % 2
-            ma.set_status(device_id, s)
         else:
             if status == status_list[ma.get_status(device_id)]:
                 return HttpResponse(help())
             else:
                 s = (ma.get_status(device_id) + 1) % 2
-                ma.set_status(device_id, s)
-
+                
+        #  except miio.exceptions.DeviceException:
         device = ceil.Ceil(ma.get_localip(device_id), ma.get_token(device_id))
         if s == 1:
             device.on()
         else:
             device.off()
+        ma.set_status(device_id, s)
         return HttpResponse(help())
 
 def validate(request_method, requested):

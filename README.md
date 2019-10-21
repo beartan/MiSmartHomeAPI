@@ -4,14 +4,19 @@
 
 ## 目前实现
 
-1. 定时监控局域网中的智能设备（只能拿到Device Id和Local Ip）
-2. 以REST APIs形式访问支持Wi-Fi的米家智能设备（台灯和插座）
+- 定时监控局域网中的智能设备（只能拿到Device Id和Local Ip）
+- 以REST APIs形式访问支持Wi-Fi的米家智能设备（台灯和插座）
+
+## TODO
+
+- token自动化获取（tnl，搞不定）
+- 数据库支持
 
 ## 环境要求
 
-1. python-miio: https://github.com/rytilahti/python-miio
-2. Django
-3. Python3
+- python-miio: https://github.com/rytilahti/python-miio
+- Django
+- Python3
 
 ## 使用
 
@@ -53,4 +58,6 @@ POST
 
 ## 注意
 
-由于可以通过`GET`方法直接获取每个注册设备的信息，可能存在严重的安全隐患。
+1. 由于可以通过`GET`方法直接获取每个注册设备的信息，可能存在严重的安全隐患。
+2. 设备的插拔不会改变localip与token
+
