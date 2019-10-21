@@ -9,7 +9,10 @@
 
 ## TODO
 
-- token自动化获取（tnl，搞不定）
+- token自动化获取（tnl，搞不定）。
+
+  目前获取token手段：使用Android手机下载米家APP(v5.4.49)，用APP连接设备后，token以明文形式记录在APP的log文件（`/SmartHome/logs/\d{4}-\d{2}-\d{2}\.txt`）中。
+
 - 数据库支持
 
 ## 环境要求
@@ -59,5 +62,5 @@ POST
 ## 注意
 
 1. 由于可以通过`GET`方法直接获取每个注册设备的信息，可能存在严重的安全隐患。
-2. 设备的插拔不会改变localip与token
+2. 设备的插拔不会改变localip与token，设备的重置会改变token
 

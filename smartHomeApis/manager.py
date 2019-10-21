@@ -72,8 +72,11 @@ def monitor_process(devices, discover_timeout, monitor_interval):
                 if devices[Id].get('inroom') != 1:
                     modify_manager_dict(devices, Id, 'inroom', 1)
                     if devices[Id].get('token') and not devices[Id].get('type'):
-                        t = DeviceManager.get_device_type(devices[Id].get('localip'), devices[Id].get('token'))
-                        modify_manager_dict(devices, Id, 'type', t)
+                        temp = DeviceManager.get_device_type(devices[Id].get('localip'), devices[Id].get('token'))
+                        if temp is None:
+                            modify_manager_dict(devices, Id, 'token', None)
+                        else:
+                            modify_manager_dict(devices, Id, 'type', temp)
         for Id in devices.keys():
             if Id not in seen_devices:
                 modify_manager_dict(devices, Id, 'inroom', 0)
@@ -127,7 +130,11 @@ class DeviceManager(object):
 
     @staticmethod
     def get_device_type(localip, token):
-        return miio.ceil.Ceil(localip, token).info().__str__().split()[0]
+        try:
+            return miio.ceil.Ceil(localip, token).info().__str__().split()[0]
+        except Exception as e:
+            print(e)
+            return None
 
     #  def add_device(self, device_id, token, localip=None, name=None):
     def add_device(self, device_id, device_param):
@@ -139,7 +146,11 @@ class DeviceManager(object):
         else:
             if device_param.get('token') and device_param.get('token') != self.get_token(device_id):
                 self.set_token(device_id, device_param['token'])
-                self.set_type(device_id, self.get_device_type(self.get_localip(device_id), self.get_token(device_id)))
+                temp = self.get_device_type(self.get_localip(device_id), self.get_token(device_id))
+                if temp is None:
+                    self.set_token(device_id, None)
+                else:
+                    self.set_type(device_id, temp)
             if device_param.get('name'):
                 self.set_name(device_id, device_param['name'])
 
