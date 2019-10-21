@@ -46,7 +46,6 @@ POST
     - Path:
         /<int:device_id>
     - Form:
-        @localip    IP address of device in LAN
         @status     on or off(not necessary)
 ```
 
