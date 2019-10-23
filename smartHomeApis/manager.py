@@ -8,7 +8,7 @@ import binascii
 import codecs
 from multiprocessing import Process, Manager
 
-from . import global_config
+from . import config
 
 def discover(timeout, addr=None):
     is_broadcast = addr is None
@@ -61,8 +61,11 @@ def monitor_process(devices, discover_timeout, monitor_interval):
         for Id in seen_devices:
             dev = seen_devices.get(Id)
             if Id not in devices:
+                if Id in config.DEVICE_TOKEN:
+                    dev['token'] = config.DEVICE_TOKEN[Id]
+                    dev['type'] = DeviceManager.get_device_type(dev.get('localip'), dev.get('token'))
                 dev['inroom'] = 1
-                dev['status'] = 0
+                dev['status'] = DeviceManager.is_on(dev.get('localip'), dev.get('token'))
                 devices[Id] = dev
             else:
                 if devices[Id].get('localip') != dev.get('localip'):
@@ -122,12 +125,20 @@ class DeviceManager(object):
     def __init__(self):
         if not self._process:
             self._device = Manager().dict()
-            discover_timeout = global_config.DISCOVER_TIMEOUT
-            monitor_interval = global_config.MONITOR_INTERVAL
+            discover_timeout = config.DISCOVER_TIMEOUT
+            monitor_interval = config.MONITOR_INTERVAL
             self._process = Process(target=monitor_process, args=(self._device, discover_timeout, monitor_interval))
             self._process.daemon = True
             self._process.start()
 
+    @staticmethod
+    def is_on(localip, token):
+        try:
+            if miio.ceil.Ceil(localip, token).status().power == 'on':
+                return 1
+        except Exception as e:
+            print(e)
+        return 0
     @staticmethod
     def get_device_type(localip, token):
         try:

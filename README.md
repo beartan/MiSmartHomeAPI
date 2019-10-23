@@ -9,6 +9,8 @@
 
 ## TODO
 
+- device类继承Manager.dict，直接操作太过混乱
+
 - token自动化获取（tnl，搞不定）。
 
   目前获取token手段：使用Android手机下载米家APP(v5.4.49)，用APP连接设备后，token以明文形式记录在APP的log文件（`/SmartHome/logs/\d{4}-\d{2}-\d{2}\.txt`）中。
