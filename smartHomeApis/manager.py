@@ -61,11 +61,12 @@ def monitor_process(devices, discover_timeout, monitor_interval):
         for Id in seen_devices:
             dev = seen_devices.get(Id)
             if Id not in devices:
+                dev['inroom'] = 1
                 if Id in config.DEVICE_TOKEN:
                     dev['token'] = config.DEVICE_TOKEN[Id]
                     dev['type'] = DeviceManager.get_device_type(dev.get('localip'), dev.get('token'))
-                dev['inroom'] = 1
-                dev['status'] = DeviceManager.is_on(dev.get('localip'), dev.get('token'))
+                if dev.get('token'):
+                    dev['status'] = DeviceManager.is_on(dev.get('localip'), dev.get('token'))
                 devices[Id] = dev
             else:
                 if devices[Id].get('localip') != dev.get('localip'):
@@ -80,9 +81,11 @@ def monitor_process(devices, discover_timeout, monitor_interval):
                             modify_manager_dict(devices, Id, 'token', None)
                         else:
                             modify_manager_dict(devices, Id, 'type', temp)
-        for Id in devices.keys():
+        for Id, dev in devices.items():
             if Id not in seen_devices:
                 modify_manager_dict(devices, Id, 'inroom', 0)
+            if dev.get('token'):
+                modify_manager_dict(devices, Id, 'status', DeviceManager.is_on(dev.get('localip'), dev.get('token')))
         sys.stdout.write(json.dumps(devices.copy(), indent=4)+'\n')
         time.sleep(sleep_time)
 

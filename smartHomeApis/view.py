@@ -44,14 +44,12 @@ def device(request, device_id=None):
         if not ma.get_token(device_id):
             return HttpResponseBadRequest("the token of the device has not been set.\n")
         status = request.POST.get('status')
-        status_list = ['off', 'on']
-        if status not in status_list:
+        if status is None:
             s = (ma.get_status(device_id) + 1) % 2
         else:
-            if status == status_list[ma.get_status(device_id)]:
+            s = int(status)
+            if s == ma.get_status(device_id):
                 return HttpResponse(help())
-            else:
-                s = (ma.get_status(device_id) + 1) % 2
                 
         #  except miio.exceptions.DeviceException:
         device = ceil.Ceil(ma.get_localip(device_id), ma.get_token(device_id))
@@ -95,5 +93,5 @@ POST
     - Path:
         /<int:device_id>
     - Form:
-        @status     on or off(not necessary)
+        @status     0 or 1(not necessary)
 '''
