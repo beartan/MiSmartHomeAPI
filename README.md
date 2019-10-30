@@ -2,6 +2,18 @@
 
 基于miio协议（python-miio），Django后端的小米智能家居RESTful HTTP API。
 
+## 个人造轮子的弊端
+
+仅小米设备而言，我们目前买到的设备有如下几种设备：
+
+- chuangmi.plug.m3  创米插座（需要使用[python-miio](https://github.com/rytilahti/python-miio)库）
+- yeelink.light.lamp1  Yeelink台灯（python-miio库支持简单操作，复杂操作需要[python-yeelight](https://github.com/skorokithakis/python-yeelight)库）
+- lumi.gateway.v3       绿米网关（需要使用[PyXiaomiGateway](https://github.com/Danielhiversen/PyXiaomiGateway)库）
+- Aqara温湿度传感器  支持PyXiaomiGateway库控制
+- 米家蓝牙温湿度计     不支持米家普通网关控制（需要使用特殊的蓝牙网关，比如米家床头灯，米家1090P智能摄像机，yeelight智能LED吸顶灯等）
+
+智能家居目前没有一个统一的协议，就算是同一家公司的设备也多种多样。随着设备的增加会变得越来越复杂，个人基本无法完成，最好是借助其他较为完善的平台进行改造开发。后续可能基于home-assistant。
+
 ## 目前实现
 
 - 定时监控局域网中的智能设备（只能拿到Device Id和Local Ip）
