@@ -20,5 +20,6 @@ from . import view
 urlpatterns = [
     path('', view.device),
     path('<int:device_id>', view.device),
+    path('gateway/<str:sensor_sid>', view.gateway),
     path('help', view.show_help),
 ]

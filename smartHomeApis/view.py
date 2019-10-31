@@ -6,6 +6,7 @@ from django.http import HttpResponse, HttpResponseBadRequest
 import os
 import sys
 import json
+import xiaomi_gateway
 import multiprocessing
 
 from miio import ceil
@@ -13,6 +14,14 @@ from miio import ceil
 from . import manager
 
 ma = manager.DeviceManager()
+gateway_instance = xiaomi_gateway.XiaomiGateway('192.168.31.206', '9898', '158d0002d798b6', 'i79bq7rypjw1jkcy', 5, 'any')
+
+def gateway(request, sensor_sid):
+    if sensor_sid != '158d0002d798b6':
+        return HttpResponseBadRequest("bad sensor sid.\n")
+    info = gateway_instance.get_data(sensor_sid)
+    # type(info) is dict
+    return HttpResponse(json.dumps(info))
 
 def device(request, device_id=None):
     if isinstance(device_id, int):

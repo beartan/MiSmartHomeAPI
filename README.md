@@ -36,13 +36,14 @@
 ## 环境要求
 
 - python-miio: https://github.com/rytilahti/python-miio
+- PyXiaomiGateway: https://github.com/Danielhiversen/PyXiaomiGateway
 - Django
 - Python3
 
 ## 使用
 
 ```bash
-sh build.sh # 需要安装修改过的PyXiaomiGateway
+sh build.sh
 python manage.py runserver 0.0.0.0:8000
 ```
 
