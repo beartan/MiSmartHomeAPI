@@ -15,7 +15,6 @@ async def service():
     light_url = base_url + devices['yeelink.light.lamp1']
     sensor_url = base_url + 'gateway/158d0002d798b6'
     s = requests.Session()
-    pre_plug_status = None
     while True:
         r = s.get(sensor_url)
         try:
