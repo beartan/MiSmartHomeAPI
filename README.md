@@ -4,6 +4,10 @@
 
 
 
+受限于设备单项通信问题（手动变更设备状态，设备不会发送变更信息给主机），采用轮询来更新主机上设备信息。
+
+
+
 仅小米设备而言，我们目前买到的设备有如下几种设备：
 
 - chuangmi.plug.m3  创米插座（需要使用[python-miio](https://github.com/rytilahti/python-miio)库）

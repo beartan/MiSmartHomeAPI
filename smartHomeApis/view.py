@@ -12,9 +12,10 @@ import multiprocessing
 from miio import ceil
 
 from . import manager
+from . import config
 
 ma = manager.DeviceManager()
-gateway_instance = xiaomi_gateway.XiaomiGateway('192.168.31.206', '9898', '158d0002d798b6', 'i79bq7rypjw1jkcy', 5, 'any')
+gateway_instance = xiaomi_gateway.XiaomiGateway(config.GATEWAY['localip'], config.GATEWAY['port'], config.GATEWAY['sid'], config.GATEWAY['password'], 5, 'any')
 
 def gateway(request, sensor_sid):
     if sensor_sid != '158d0002d798b6':
