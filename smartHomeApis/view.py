@@ -14,14 +14,13 @@ from miio import ceil
 from . import manager
 from . import config
 
-ma = manager.DeviceManager()
-gateway_instance = xiaomi_gateway.XiaomiGateway(config.GATEWAY['localip'], config.GATEWAY['port'], config.GATEWAY['sid'], config.GATEWAY['password'], 5, 'any')
+ma = manager.Manager()
+#  gateway_instance = xiaomi_gateway.XiaomiGateway(config.GATEWAY['localip'], config.GATEWAY['port'], config.GATEWAY['mac'], config.GATEWAY['password'], 1, 'any')
 
 def gateway(request, sensor_sid):
-    if sensor_sid != '158d0002d798b6':
+    if not ma.registered(sensor_sid):
         return HttpResponseBadRequest("bad sensor sid.\n")
-    info = gateway_instance.get_data(sensor_sid)
-    # type(info) is dict
+    info = ma.get_terminal(sensor_sid).getter('data')
     return HttpResponse(json.dumps(info))
 
 def device(request, device_id=None):
@@ -47,27 +46,28 @@ def device(request, device_id=None):
     elif request.method == 'POST':
         if not ma.registered(device_id):
             return HttpResponseBadRequest("device has been not registered.\n")
-        if not ma.get_inroom(device_id):
+        if ma.getter(device_id, 'inroom') == "False":
             return HttpResponseBadRequest("device not in room.\n")
-        if not ma.get_localip(device_id):
-            return HttpResponseBadRequest("the localip of the device has not been set.\n")
-        if not ma.get_token(device_id):
-            return HttpResponseBadRequest("the token of the device has not been set.\n")
+        requested_params = ['localip', 'token']
+        for param in requested_params:
+            if not ma.getter(device_id, param):
+                return HttpResponseBadRequest("the %s of the device has not been set.\n" % param)
         status = request.POST.get('status')
+        ps = int(ma.getter(device_id, 'status'))
         if status is None:
-            s = (ma.get_status(device_id) + 1) % 2
+            s = (ps + 1) % 2
         else:
             s = int(status)
-            if s == ma.get_status(device_id):
+            if s == ps:
                 return HttpResponse(help())
                 
         #  except miio.exceptions.DeviceException:
-        device = ceil.Ceil(ma.get_localip(device_id), ma.get_token(device_id))
+        device = ceil.Ceil(ma.getter(device_id, 'localip'), ma.getter(device_id, 'token'))
         if s == 1:
             device.on()
         else:
             device.off()
-        ma.set_status(device_id, s)
+        ma.setter(device_id, 'status', str(s))
         return HttpResponse(help())
 
 def validate(request_method, requested):

@@ -6,181 +6,301 @@ import miio
 import socket
 import binascii
 import codecs
-from multiprocessing import Process, Manager
+import threading
+import xiaomi_gateway
 
 from . import config
 
-def discover(timeout, addr=None):
-    is_broadcast = addr is None
-    seen_addrs = []  # type: List[str]
-    if is_broadcast:
-        addr = '<broadcast>'
-        is_broadcast = True
-        sys.stdout.write("Sending discovery to %s with timeout of %ds..\n" %
-                     (addr, timeout))
-    # magic, length 32
-    helobytes = bytes.fromhex(
-        '21310020ffffffffffffffffffffffffffffffffffffffffffffffffffffffff')
-
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-    s.settimeout(timeout)
-    s.sendto(helobytes, (addr, 54321))
-    devices = {}
-    while True:
-        try:
-            data, addr = s.recvfrom(1024)
-            m = miio.protocol.Message.parse(data)  # type: Message
-            #  print("Got a response: %s" % m)
-            if not is_broadcast:
-                return m
-
-            if addr[0] not in seen_addrs:
-                device_id = str(int(binascii.hexlify(m.header.value.device_id).decode(), 16))
-                localip = addr[0]
-                token = codecs.encode(m.checksum, 'hex').decode()
-                sys.stdout.write("  IP %s (ID: %s) - token: %s\n" %
-                             (localip, device_id, token))
-                seen_addrs.append(localip)
-                devices[device_id] = {'localip': localip}
-                if token != '00000000000000000000000000000000' and token != 'ffffffffffffffffffffffffffffffff':
-                    devices[device_id]['token'] = token
-        except socket.timeout:
-            if is_broadcast:
-                sys.stdout.write("Discovery done\n")
-            return  devices # ignore timeouts on discover
-        except Exception as ex:
-            sys.stderr.write("error while reading discover results: %s\n" % ex)
-            break
-
-def monitor_process(devices, discover_timeout, monitor_interval):
-    sleep_time = max(0, monitor_interval - discover_timeout)
-    while True:
-        sys.stdout.write(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())+'\n')
-        seen_devices = discover(discover_timeout)
-        for Id in seen_devices:
-            dev = seen_devices.get(Id)
-            if Id not in devices:
-                dev['inroom'] = 1
-                if Id in config.DEVICE_TOKEN:
-                    dev['token'] = config.DEVICE_TOKEN[Id]
-                    dev['type'] = DeviceManager.get_device_type(dev.get('localip'), dev.get('token'))
+class Monitor(threading.Thread):
+    def __init__(self, terminal_manager, monitor_interval, discover_timeout):
+        super(Monitor, self).__init__()
+        self.terminal_manager = terminal_manager
+        self.monitor_interval = monitor_interval
+        self.discover_timeout = discover_timeout
+    def run(self):
+        sleep_time = max(0, self.monitor_interval - self.discover_timeout)
+        while True:
+            sys.stdout.write(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())+'\n')
+            self.monitor_devices(self.terminal_manager, self.discover_timeout)
+            self.monitor_sensors(self.terminal_manager)
+            sys.stdout.write(json.dumps(self.terminal_manager.copy(), indent=4)+'\n')
+            time.sleep(sleep_time)
+    def monitor_sensors(self, ssr_manager):
+        for mac, g in self.terminal_manager.gateways.items():
+            seen_ssrs = g.discover_sensors()
+            for sid in seen_ssrs:
+                if not ssr_manager.registered(sid):
+                    new_ssr = Sensor()
+                    new_ssr.belong_gateway(g)
+                    new_ssr.setter('inroom', 'True')
+                    new_ssr.setter('id', sid)
+                    if sid in config.SENSORS:
+                        new_ssr.setter('name', config.SENSORS[sid].get('name'))
+                    new_ssr.update()
+                    ssr_manager.add(sid, new_ssr)
+                else:
+                    old_ssr = ssr_manager.terminal(sid)
+                    if old_ssr.getter('inroom') != 'True':
+                        old_ssr.setter('inroom', 'True')
+                    old_ssr.update()
+            for sid in ssr_manager:
+                if ssr_manager.is_sensor(sid) and sid not in seen_ssrs:
+                    ssr_manager.terminal(sid).setter('inroom', 'False')
+    def monitor_devices(self, dev_manager, discover_timeout):
+        seen_devs = self.device_discover(discover_timeout)
+        for did in seen_devs:
+            dev = seen_devs.get(did)
+            if not dev_manager.registered(did):
+                new_dev = Device()
+                new_dev.setter('inroom', 'True')
+                new_dev.setter('id', did)
+                new_dev.setter('localip', dev.get('localip'))
+                if did in config.DEVICES:
+                    new_dev.setter('token', config.DEVICES[did].get('token'))
+                    new_dev.setter('name', config.DEVICES[did].get('name'))
                 if dev.get('token'):
-                    dev['status'] = DeviceManager.is_on(dev.get('localip'), dev.get('token'))
-                devices[Id] = dev
+                    new_dev.setter('token', dev.get('token'))
+                new_dev.update()
+                dev_manager.add(did, new_dev)
             else:
-                if devices[Id].get('localip') != dev.get('localip'):
-                    modify_manager_dict(devices, Id, 'localip', dev.get('localip'))
-                if dev.get('token') and dev.get('token') != devices[Id].get('token'):
-                    modify_manager_dict(devices, Id, 'token', dev.get('token'))
-                if devices[Id].get('inroom') != 1:
-                    modify_manager_dict(devices, Id, 'inroom', 1)
-                    if devices[Id].get('token') and not devices[Id].get('type'):
-                        temp = DeviceManager.get_device_type(devices[Id].get('localip'), devices[Id].get('token'))
-                        if temp is None:
-                            modify_manager_dict(devices, Id, 'token', None)
-                        else:
-                            modify_manager_dict(devices, Id, 'type', temp)
-        for Id, dev in devices.items():
-            if Id not in seen_devices:
-                modify_manager_dict(devices, Id, 'inroom', 0)
-            if dev.get('token'):
-                modify_manager_dict(devices, Id, 'status', DeviceManager.is_on(dev.get('localip'), dev.get('token')))
-        sys.stdout.write(json.dumps(devices.copy(), indent=4)+'\n')
-        time.sleep(sleep_time)
+                old_dev = dev_manager.terminal(did)
+                if old_dev.getter('localip') != dev.get('localip'):
+                    old_dev.setter('localip', dev.get('localip'))
+                if dev.get('token') and dev.get('token') != old_dev.getter('token'):
+                    old_dev.setter('token', dev.get('token'))
+                if old_dev.getter('inroom') != "True":
+                    old_dev.setter('inroom', "True")
+                old_dev.update()
+        for did in dev_manager:
+            if dev_manager.is_device(did) and did not in seen_devs:
+                dev_manager.terminal(did).setter('inroom', "False")
+    def device_discover(self, timeout, addr=None):
+        is_broadcast = addr is None
+        seen_addrs = []  # type: List[str]
+        if is_broadcast:
+            addr = '<broadcast>'
+            is_broadcast = True
+            sys.stdout.write("Sending discovery to %s with timeout of %ds..\n" %
+                         (addr, timeout))
+        # magic, length 32
+        helobytes = bytes.fromhex(
+            '21310020ffffffffffffffffffffffffffffffffffffffffffffffffffffffff')
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        s.settimeout(timeout)
+        s.sendto(helobytes, (addr, 54321))
+        devices = {}
+        while True:
+            try:
+                data, addr = s.recvfrom(1024)
+                m = miio.protocol.Message.parse(data)  # type: Message
+                if not is_broadcast:
+                    return m
 
-def modify_manager_dict(mdict, key, attr, value):
-    temp = mdict.get(key)
-    temp[attr] = value
-    mdict[key] = temp
+                if addr[0] not in seen_addrs:
+                    device_id = str(int(binascii.hexlify(m.header.value.device_id).decode(), 16))
+                    localip = addr[0]
+                    token = codecs.encode(m.checksum, 'hex').decode()
+                    sys.stdout.write("  IP %s (ID: %s) - token: %s\n" %
+                                 (localip, device_id, token))
+                    seen_addrs.append(localip)
+                    devices[device_id] = {'localip': localip}
+                    if token != '00000000000000000000000000000000' and token != 'ffffffffffffffffffffffffffffffff':
+                        devices[device_id]['token'] = token
+            except socket.timeout:
+                if is_broadcast:
+                    sys.stdout.write("Discovery done\n")
+                return  devices # ignore timeouts on discover
+            except Exception as ex:
+                sys.stderr.write("error while reading discover results: %s\n" % ex)
+                break
 
-class DeviceManager(object):
-    '''
-    _device = {
-        device_id:
-           {token, localip, name, status, inroom}
-    }
-    '''
-    _instance = None
-    _process = None
-    _device = None
-    
-    def __new__(self, *args, **kw):
-        if not self._instance:
-            self._instance = super(DeviceManager, self).__new__(self, *args, **kw)
-            def gen_get_attr_func(attr):
-                def get_attr_func(self, device_id):
-                    return self._device.get(device_id).get(attr)
-                return get_attr_func
-            def gen_set_attr_func(attr):
-                def set_attr_func(self, device_id, attr_value):
-                    if not self._device.get(device_id):
-                        return False
-                    modify_manager_dict(self._device, device_id, attr, attr_value)
-                    return True
-                return set_attr_func
-            attr_list = ['token', 'localip', 'name', 'status', 'inroom', 'type']
-            for attr in attr_list:
-                setattr(self, 'get_%s' % attr, gen_get_attr_func(attr))
-                setattr(self, 'set_%s' % attr, gen_set_attr_func(attr))
-        return self._instance
-    
+class TerminalManager(dict):
+    def __init__(self, defined_gateways):
+        super(TerminalManager, self).__init__()
+        self.lock = threading.Lock()
+        self.gateways = {}
+        for mac, params in defined_gateways.items():
+            self.gateways[mac] = xiaomi_gateway.XiaomiGateway(params['localip'], params['port'], params['mac'], params['password'], 1, 'any')
+    def add(self, tid, terminal):
+        with self.lock:
+            self[tid] = terminal
+    def terminal(self, tid):
+        with self.lock:
+            if not self.registered(tid):
+                return None
+            return self[tid]
+    def registered(self, tid):
+        return tid in self
+    def delete(self, tid):
+        with self.lock:
+            self.pop(tid)
+    def is_device(self, tid):
+        with self.lock:
+            return self[tid].is_device()
+    def is_sensor(self, tid):
+        with self.lock:
+            return self[tid].is_sensor()
+
+class Terminal(dict):
     def __init__(self):
-        if not self._process:
-            self._device = Manager().dict()
-            discover_timeout = config.DISCOVER_TIMEOUT
-            monitor_interval = config.MONITOR_INTERVAL
-            self._process = Process(target=monitor_process, args=(self._device, discover_timeout, monitor_interval))
-            self._process.daemon = True
-            self._process.start()
+        super(dict, self).__init__()
+        self.lock = threading.Lock()
+        keys = ['id', 'inroom', 'localip', 'token', 'type', 'model', 'name', 'status', 'data']
+        for key in keys:
+            self[key] = None
+    def getter(self, key):
+        with self.lock:
+            return self[key]
+    def setter(self, key, value):
+        with self.lock:
+            if key not in self:
+                return False
+            if value is None:
+                print('Value[None] is illegal')
+                return False
+            self[key] = value
+        return True
+    def type(self):
+        with self.lock:
+            return self['type']
+    def is_device(self):
+        return self.type() == 'Device'
+    def is_sensor(self):
+        return self.type() == 'Sensor'
 
+class Device(Terminal):
+    def __init__(self):
+        super(Device, self).__init__()
+        self['type'] = 'Device'
     @staticmethod
-    def is_on(localip, token):
-        try:
-            if miio.ceil.Ceil(localip, token).status().power == 'on':
-                return 1
-        except Exception as e:
-            print(e)
-        return 0
-    @staticmethod
-    def get_device_type(localip, token):
+    def get_model(localip, token):
         try:
             return miio.ceil.Ceil(localip, token).info().__str__().split()[0]
         except Exception as e:
             print(e)
             return None
-
-    #  def add_device(self, device_id, token, localip=None, name=None):
-    def add_device(self, device_id, device_param):
-        if not self.registered(device_id):
-            self._device[device_id] = copy.deepcopy(device_param)
-            self.set_status(device_id, 0)
-            self.set_inroom(device_id, 0)
-            #  self.set_type(device_id, miio.ceil.Ceil(self.get_localip(device_id), self.get_token(device_id)).info().__str__().split()[0])
-        else:
-            if device_param.get('token') and device_param.get('token') != self.get_token(device_id):
-                self.set_token(device_id, device_param['token'])
-                temp = self.get_device_type(self.get_localip(device_id), self.get_token(device_id))
-                if temp is None:
-                    self.set_token(device_id, None)
-                else:
-                    self.set_type(device_id, temp)
-            if device_param.get('name'):
-                self.set_name(device_id, device_param['name'])
-
-    def get_device(self, device_id=None):
-        if self.registered(device_id):
-            return self._device.copy().get(device_id)
-        return self._device.copy()
-
-    def get_json_string(self, device_id=None, indent=4):
-        return json.dumps(self.get_device(device_id), indent=indent)
-
-    def delete_device(self, device_id):
-        if not self.registered(device_id):
+    @staticmethod
+    def get_status(localip, token):
+        try:
+            if miio.ceil.Ceil(localip, token).status().power == 'on':
+                return '1'
+        except Exception as e:
+            print(e)
+        return '0'
+    def update_model(self):
+        localip = self.getter('localip')
+        token = self.getter('token')
+        if localip is None or token is None:
             return False
-        self._device.pop(device_id)
+        if self.getter('model') is not None:
+            return False
+        self.setter('model', Device.get_model(localip, token))
+        return True
+    def update_status(self):
+        localip = self.getter('localip')
+        token = self.getter('token')
+        if localip is None or token is None:
+            return False
+        self.setter('status', Device.get_status(localip, token))
+        return True
+    def update(self):
+        self.update_model()
+        self.update_status()
+        if self.get('name') is None:
+            self.setter('name', self.getter('model'))
+
+class Sensor(Terminal):
+    def __init__(self):
+        super(Sensor, self).__init__()
+        self.belong = None
+        self['type'] = 'Sensor'
+    def belong_gateway(self, g):
+        with self.lock:
+            self.belong = g
+    @staticmethod
+    def get_data(gateway_instance, sid):
+        info = gateway_instance.get_data(sid)
+        data = json.loads(info.get('data'))
+        if data.get('error'):
+            return None
+        return data
+    @staticmethod
+    def get_model(gateway_instance, sid):
+        info = gateway_instance.get_data(sid)
+        return info.get('model')
+    def update_data(self):
+        gateway = self.belong
+        sid = self.getter('id')
+        if gateway is None or sid is None:
+            return False
+        self.setter('data', Sensor.get_data(gateway, sid))
+        return True
+    def update_model(self):
+        gateway = self.belong
+        sid = self.getter('id')
+        if gateway is None or sid is None:
+            return False
+        self.setter('model', Sensor.get_model(gateway, sid))
+        return True
+    def update(self):
+        self.update_data()
+        self.update_model()
+        if self.get('name') is None:
+            self.setter('name', self.getter('model'))
+
+class Manager(object):
+    _instance = None
+    _monitor = None
+    _terminal_manager = None
+    
+    def __new__(self, *args, **kw):
+        if not self._instance:
+            self._instance = super(Manager, self).__new__(self, *args, **kw)
+        return self._instance
+    
+    def __init__(self):
+        if not self._monitor:
+            self._terminal_manager = TerminalManager(config.GATEWAYS)
+            self._monitor = Monitor(self._terminal_manager, config.MONITOR_INTERVAL, config.DISCOVER_TIMEOUT)
+            self._monitor.daemon = True
+            self._monitor.start()
+
+    def add_device(self, did, params):
+        if not self.registered(did):
+            new_dev = Device()
+            for key, value in params.items():
+                new_dev.setter(key, value)
+            new_dev.setter('inroom', "False")
+            new_dev.update()
+            self._terminal_manager.add(did, new_dev)
+        else:
+            old_dev = self._terminal_manager.terminal(did)
+            if params.get('token') and params.get('token') != old_dev.getter('token'):
+                old_dev.setter('token', params.get('token'))
+                old_dev.update()
+            if params.get('name'):
+                old_dev.setter('name', params.get('name'))
+
+    def get_terminal(self, tid=None):
+        if self.registered(tid):
+            return self._terminal_manager.terminal(tid)
+        return self._terminal_manager
+
+    def get_json_string(self, tid=None, indent=4):
+        return json.dumps(self.get_terminal(tid), indent=indent)
+
+    def delete_device(self, did):
+        if not self.registered(did):
+            return False
+        self._terminal_manager.delete(did)
         return True
 
-    def registered(self, device_id):
-        return self._device.get(device_id) is not None
+    def registered(self, tid):
+        return self._terminal_manager.registered(tid)
+
+    def getter(self, tid, key):
+        return self._terminal_manager.terminal(tid).getter(key)
+
+    def setter(self, tid, key, value):
+        return self._terminal_manager.terminal(tid).setter(key, value)

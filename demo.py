@@ -17,16 +17,15 @@ async def service(interval):
     while True:
         r = s.get(sensor_url)
         try:
-            print(r.json())
-            data = json.loads(r.json()['data'])
+            data = r.json()
             temperature = float(data['temperature']) / 100.0
             humidity = float(data['humidity']) / 100.0
             print(' temperature: %f' % temperature)
             print(' humidity: %f' % humidity)
             if humidity >= 55.0:
-                s.post(light_url, data={'status': 1})
+                r = s.post(light_url, data={'status': 1})
             else:
-                s.post(light_url, data={'status': 0})
+                r = s.post(light_url, data={'status': 0})
         except Exception as e:
             print(e)
         await asyncio.sleep(interval)
