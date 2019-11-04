@@ -10,13 +10,15 @@ import threading
 import xiaomi_gateway
 
 from . import config
+from . import database
 
 class Monitor(threading.Thread):
-    def __init__(self, terminal_manager, monitor_interval, discover_timeout):
+    def __init__(self, terminal_manager, database_manager, monitor_interval, discover_timeout):
         super(Monitor, self).__init__()
         self.terminal_manager = terminal_manager
         self.monitor_interval = monitor_interval
         self.discover_timeout = discover_timeout
+        self.database_manager = database_manager
     def run(self):
         sleep_time = max(0, self.monitor_interval - self.discover_timeout)
         while True:
@@ -24,6 +26,7 @@ class Monitor(threading.Thread):
             self.monitor_devices(self.terminal_manager, self.discover_timeout)
             self.monitor_sensors(self.terminal_manager)
             sys.stdout.write(json.dumps(self.terminal_manager.copy(), indent=4)+'\n')
+            self.database_manager.push_to_database(self.terminal_manager)
             time.sleep(sleep_time)
     def monitor_sensors(self, ssr_manager):
         for mac, g in self.terminal_manager.gateways.items():
@@ -253,19 +256,18 @@ class Manager(object):
     _instance = None
     _monitor = None
     _terminal_manager = None
-    
     def __new__(self, *args, **kw):
         if not self._instance:
             self._instance = super(Manager, self).__new__(self, *args, **kw)
         return self._instance
-    
     def __init__(self):
         if not self._monitor:
+            self._database_manager = database.DatabaseManager(config.DATABASE['remote_ip'], config.DATABASE['remote_usr'], config.DATABASE['remote_pwd'],
+                        config.DATABASE['database_usr'], config.DATABASE['database_pwd'], config.DATABASE['database_name'])
             self._terminal_manager = TerminalManager(config.GATEWAYS)
-            self._monitor = Monitor(self._terminal_manager, config.MONITOR_INTERVAL, config.DISCOVER_TIMEOUT)
+            self._monitor = Monitor(self._terminal_manager, self._database_manager, config.MONITOR_INTERVAL, config.DISCOVER_TIMEOUT)
             self._monitor.daemon = True
             self._monitor.start()
-
     def add_device(self, did, params):
         if not self.registered(did):
             new_dev = Device()
@@ -281,26 +283,20 @@ class Manager(object):
                 old_dev.update()
             if params.get('name'):
                 old_dev.setter('name', params.get('name'))
-
     def get_terminal(self, tid=None):
         if self.registered(tid):
             return self._terminal_manager.terminal(tid)
         return self._terminal_manager
-
     def get_json_string(self, tid=None, indent=4):
         return json.dumps(self.get_terminal(tid), indent=indent)
-
     def delete_device(self, did):
         if not self.registered(did):
             return False
         self._terminal_manager.delete(did)
         return True
-
     def registered(self, tid):
         return self._terminal_manager.registered(tid)
-
     def getter(self, tid, key):
         return self._terminal_manager.terminal(tid).getter(key)
-
     def setter(self, tid, key, value):
         return self._terminal_manager.terminal(tid).setter(key, value)

@@ -39,3 +39,12 @@ GATEWAYS = {
         'password': 'i79bq7rypjw1jkcy',
     },
 }
+
+DATABASE = {
+    'remote_ip': '39.104.154.79',
+    'remote_usr': 'wangch',
+    'remote_pwd': '20191104wc',
+    'database_usr': 'root',
+    'database_pwd': '20191104', 
+    'database_name': 'node_infos',
+}
