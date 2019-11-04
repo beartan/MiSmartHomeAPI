@@ -41,10 +41,10 @@ GATEWAYS = {
 }
 
 DATABASE = {
-    'remote_ip': '39.104.154.79',
-    'remote_usr': 'wangch',
-    'remote_pwd': '20191104wc',
+    'remote_ip': '1.1.1.1',
+    'remote_usr': 'barriery',
+    'remote_pwd': 'wonderful',
     'database_usr': 'root',
-    'database_pwd': '20191104', 
-    'database_name': 'node_infos',
+    'database_pwd': 'password', 
+    'database_name': 'database',
 }
