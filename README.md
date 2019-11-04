@@ -24,12 +24,10 @@
 
 ## 目前实现
 
-- 定时监控局域网中的智能设备（只能拿到Device Id和Local Ip）
-- 以REST APIs形式访问支持Wi-Fi的米家智能设备（台灯和插座）
+- 定时监控局域网中的智能设备和传感器
+- 以REST APIs形式访问支持Wi-Fi的米家智能设备和传感器
 
 ## TODO
-
-- device类继承Manager.dict，直接操作太过混乱
 
 - token自动化获取（tnl，搞不定），可能有帮助：https://github.com/xcray/miio-by-CSharp。
 
