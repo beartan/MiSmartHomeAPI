@@ -15,60 +15,53 @@ from . import manager
 from . import config
 
 ma = manager.Manager()
-#  gateway_instance = xiaomi_gateway.XiaomiGateway(config.GATEWAY['localip'], config.GATEWAY['port'], config.GATEWAY['mac'], config.GATEWAY['password'], 1, 'any')
 
-def gateway(request, sensor_sid):
-    if not ma.registered(sensor_sid):
-        return HttpResponseBadRequest("bad sensor sid.\n")
-    info = ma.get_terminal(sensor_sid).getter('data')
-    return HttpResponse(json.dumps(info))
-
-def device(request, device_id=None):
-    if isinstance(device_id, int):
-        device_id = str(device_id)
+def manager(request, tid=None):
     if request.method == 'PUT':
-        if not device_id:
+        if not tid:
             return HttpResponseBadRequest("bad device id.\n")
         check = validate(request.PUT, ['token'])
         if check is not None:
             return check
         attributes = ['token', 'name', 'localip']
         device_param = {attr: request.PUT.get(attr) for attr in attributes}
-        ma.add_device(device_id, device_param)
-        return HttpResponse(ma.get_json_string(device_id))
+        ma.add_device(tid, device_param)
+        return HttpResponse(ma.get_json_string(tid))
     elif request.method == 'GET':
-        return HttpResponse(ma.get_json_string(device_id))
+        if tid is not None and not ma.registered(tid):
+            return HttpResponseBadRequest("terminal not reversed.\n")
+        return HttpResponse(ma.get_json_string(tid))
     elif request.method == 'DELETE':
-        if not ma.registered(device_id):
+        if not ma.registered(tid):
             return HttpResponseBadRequest("device has been not registered.\n")
-        ma.delete_device(device_id)
-        return HttpResponse(help())
+        ma.delete_device(tid)
+        return HttpResponse(help_str())
     elif request.method == 'POST':
-        if not ma.registered(device_id):
+        if not ma.registered(tid):
             return HttpResponseBadRequest("device has been not registered.\n")
-        if ma.getter(device_id, 'inroom') == "False":
+        if ma.getter(tid, 'inroom') == "False":
             return HttpResponseBadRequest("device not in room.\n")
         requested_params = ['localip', 'token']
         for param in requested_params:
-            if not ma.getter(device_id, param):
+            if not ma.getter(tid, param):
                 return HttpResponseBadRequest("the %s of the device has not been set.\n" % param)
         status = request.POST.get('status')
-        ps = int(ma.getter(device_id, 'status'))
+        ps = int(ma.getter(tid, 'status'))
         if status is None:
             s = (ps + 1) % 2
         else:
             s = int(status)
             if s == ps:
-                return HttpResponse(help())
+                return HttpResponse(help_str())
                 
         #  except miio.exceptions.DeviceException:
-        device = ceil.Ceil(ma.getter(device_id, 'localip'), ma.getter(device_id, 'token'))
+        device = ceil.Ceil(ma.getter(tid, 'localip'), ma.getter(tid, 'token'))
         if s == 1:
             device.on()
         else:
             device.off()
-        ma.setter(device_id, 'status', str(s))
-        return HttpResponse(help())
+        ma.setter(tid, 'status', str(s))
+        return HttpResponse(help_str())
 
 def validate(request_method, requested):
     for key in requested:
@@ -76,32 +69,32 @@ def validate(request_method, requested):
             return HttpResponseBadRequest("Missing %s.\n"%key)
     return None
 
-def show_help(request):
-    return HttpResponse(help())
+def help(request):
+    return HttpResponse(help_str())
 
-def help():
+def help_str():
     return '''
 PUT
     - Description:  Add a device. The default status of device is off.
     - Path:
-        /<int:device_id>
+        /<str:did>
     - Form:
         @localip    IP address of device in LAN
         @token      Device token, which is allocated when the device connects to MI-HOME app
         @name       Device name which is generally set in MI-HOME app (not necessary)
 GET
-    - Description:  List devices infomation.
+    - Description:  List terminals(include devices and sensors) infomation.
     - Path: 
-        /                   List all devises infomation
-        /<int:device_id>    List device infomation corresponding to the device_id
+        /           List all terminals infomation
+        /<int:tid>  List terminal infomation corresponding to the tid
 DELETE
-    - Description:  Delete a device by device_id.
+    - Description:  Delete a terminal by tid.
     - Path:
-        /<int:device_id>
+        /<int:tid>
 POST
     - Description:  Given instructions, control device(Default switch on and off status).
     - Path:
-        /<int:device_id>
+        /<int:did>
     - Form:
         @status     0 or 1(not necessary)
 '''

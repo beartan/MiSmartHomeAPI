@@ -18,8 +18,7 @@ from django.urls import path
 from . import view
 
 urlpatterns = [
-    path('', view.device),
-    path('<int:device_id>', view.device),
-    path('gateway/<str:sensor_sid>', view.gateway),
-    path('help', view.show_help),
+    path('', view.manager),
+    path('<str:tid>', view.manager),
+    path('help', view.help),
 ]

@@ -1,6 +1,6 @@
 # SmartHomeAPI
 
-基于miio协议（python-miio），Django后端的小米智能家居RESTful HTTP API。
+基于PyXiaomiGateway，python-miio，Django后端的小米智能家居RESTful HTTP API。
 
 
 
@@ -30,11 +30,11 @@
 
 ## TODO
 
-- token自动化获取（tnl，搞不定），可能有帮助：https://github.com/xcray/miio-by-CSharp。
+- token自动化获取（搞不定），可能有帮助：https://github.com/xcray/miio-by-CSharp。
 
   目前获取token手段：使用Android手机下载米家APP(v5.4.49)，用APP连接设备后，token以明文形式记录在APP的log文件（`/SmartHome/logs/\d{4}-\d{2}-\d{2}\.txt`）中。
 
-- 数据库支持
+  获取网关密码信息：在米家APP中打开开发者模式获取信息。
 
 ## 环境要求
 
@@ -47,6 +47,7 @@
 
 ```bash
 sh build.sh
+mv smartHomeApis/config.example.py smartHomeApis/config.py # modify it
 python manage.py runserver 0.0.0.0:8000
 ```
 
@@ -58,32 +59,33 @@ python manage.py runserver 0.0.0.0:8000
 PUT
     - Description:  Add a device. The default status of device is off.
     - Path:
-        /<int:device_id>
+        /<str:did>
     - Form:
         @localip    IP address of device in LAN
         @token      Device token, which is allocated when the device connects to MI-HOME app
         @name       Device name which is generally set in MI-HOME app (not necessary)
 GET
-    - Description:  List devices infomation.
+    - Description:  List terminals(include devices and sensors) infomation.
     - Path:
-        /                   List all devises infomation
-        /<int:device_id>    List device infomation corresponding to the device_id
+        /           List all terminals infomation
+        /<int:tid>  List terminal infomation corresponding to the tid
 DELETE
-    - Description:  Delete a device by device_id.
+    - Description:  Delete a terminal by tid.
     - Path:
-        /<int:device_id>
+        /<int:tid>
 POST
     - Description:  Given instructions, control device(Default switch on and off status).
     - Path:
-        /<int:device_id>
+        /<int:did>
     - Form:
-        @status     1 or 0(not necessary)
+        @status     0 or 1(not necessary)
 ```
 
 
 
 ## 注意
 
-1. 由于可以通过`GET`方法直接获取每个注册设备的信息，可能存在严重的安全隐患。
-2. 设备的插拔不会改变localip与token，设备的重置会改变token
+1. 由于可以通过`GET`方法直接获取每个注册设备的信息，存在严重的安全隐患。
+2. 后端会持续将设备信息发送到数据库，存在严重的隐私安全隐患。
+3. 设备的插拔不会改变localip与token，设备的重置会改变token
 
