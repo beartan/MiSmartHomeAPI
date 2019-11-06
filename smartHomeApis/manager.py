@@ -7,10 +7,13 @@ import socket
 import binascii
 import codecs
 import threading
+import logging
 import xiaomi_gateway
 
 from . import config
 from . import database
+
+_LOGGER = logging.getLogger(__name__)
 
 class Monitor(threading.Thread):
     def __init__(self, terminal_manager, database_manager, monitor_interval, discover_timeout):
@@ -26,7 +29,7 @@ class Monitor(threading.Thread):
             self.monitor_devices(self.terminal_manager, self.discover_timeout)
             self.monitor_sensors(self.terminal_manager)
             sys.stdout.write(json.dumps(self.terminal_manager.copy(), indent=4)+'\n')
-            self.database_manager.push_to_database(self.terminal_manager)
+            self.database_manager.push_to_database(self.terminal_manager, repeated_filter=True)
             time.sleep(sleep_time)
     def monitor_sensors(self, ssr_manager):
         for mac, g in self.terminal_manager.gateways.items():
@@ -83,8 +86,8 @@ class Monitor(threading.Thread):
         if is_broadcast:
             addr = '<broadcast>'
             is_broadcast = True
-            sys.stdout.write("Sending discovery to %s with timeout of %ds..\n" %
-                         (addr, timeout))
+            _LOGGER.info("Sending discovery to %s with timeout of %ds..",
+                    addr, timeout)
         # magic, length 32
         helobytes = bytes.fromhex(
             '21310020ffffffffffffffffffffffffffffffffffffffffffffffffffffffff')
@@ -104,25 +107,26 @@ class Monitor(threading.Thread):
                     device_id = str(int(binascii.hexlify(m.header.value.device_id).decode(), 16))
                     localip = addr[0]
                     token = codecs.encode(m.checksum, 'hex').decode()
-                    sys.stdout.write("  IP %s (ID: %s) - token: %s\n" %
-                                 (localip, device_id, token))
+                    _LOGGER.info("  IP %s (ID: %s) - token: %s", 
+                            localip, device_id, token)
                     seen_addrs.append(localip)
                     devices[device_id] = {'localip': localip}
                     if token != '00000000000000000000000000000000' and token != 'ffffffffffffffffffffffffffffffff':
                         devices[device_id]['token'] = token
             except socket.timeout:
                 if is_broadcast:
-                    sys.stdout.write("Discovery done\n")
+                    _LOGGER.info("Discovery done")
                 return  devices # ignore timeouts on discover
             except Exception as ex:
-                sys.stderr.write("error while reading discover results: %s\n" % ex)
+                _LOGGER.error("error while reading discover results: %s\n" % ex)
                 break
 
 class TerminalManager(dict):
-    def __init__(self, defined_gateways):
+    def __init__(self, defined_gateways, location):
         super(TerminalManager, self).__init__()
         self.lock = threading.Lock()
         self.gateways = {}
+        self.location = location
         for mac, params in defined_gateways.items():
             self.gateways[mac] = xiaomi_gateway.XiaomiGateway(params['localip'], params['port'], params['mac'], params['password'], 1, 'any')
     def add(self, tid, terminal):
@@ -264,7 +268,7 @@ class Manager(object):
         if not self._monitor:
             self._database_manager = database.DatabaseManager(config.DATABASE['remote_ip'], config.DATABASE['remote_usr'], config.DATABASE['remote_pwd'],
                         config.DATABASE['database_usr'], config.DATABASE['database_pwd'], config.DATABASE['database_name'])
-            self._terminal_manager = TerminalManager(config.GATEWAYS)
+            self._terminal_manager = TerminalManager(config.GATEWAYS, config.LOCATION)
             self._monitor = Monitor(self._terminal_manager, self._database_manager, config.MONITOR_INTERVAL, config.DISCOVER_TIMEOUT)
             self._monitor.daemon = True
             self._monitor.start()

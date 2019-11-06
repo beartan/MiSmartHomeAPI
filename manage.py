@@ -2,8 +2,10 @@
 """Django's command-line utility for administrative tasks."""
 import os
 import sys
+import logging
 
 def main():
+    #  logging.basicConfig(level=logging.INFO)
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'smartHomeApis.settings')
     try:
         from django.core.management import execute_from_command_line

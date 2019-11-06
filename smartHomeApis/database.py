@@ -4,6 +4,8 @@
 import pymysql
 import json
 import sshtunnel
+import copy
+import datetime
 
 class DatabaseManager(object):
     def __init__(self, remote_ip, remote_usr, remote_pwd, database_usr, database_pwd, database_name):
@@ -19,6 +21,7 @@ class DatabaseManager(object):
                 host='127.0.0.1',
                 database=database_name,
                 port=self.server.local_bind_port)
+        self._pre_terminal_infos = None
     def __del__(self):
         self.conn.close()
         self.server.stop()
@@ -27,54 +30,65 @@ class DatabaseManager(object):
         cursor.execute(sql_cmd)
         data = cursor.fetchone()
         return data is not None
-    def insert(self, table, keys, values, cursor, conn):
+    def insert(self, table, params, cursor, conn):
+        keys = None
+        values = None
+        for k, v in params.items():
+            keys = k if keys is None else "%s, %s"%(keys, k)
+            values = "'%s'"%v if values is None else "%s, '%s'"%(values, v)
         sql_cmd = "insert into %s (%s) values (%s)" % (table, keys, values)
         cursor.execute(sql_cmd)
         conn.commit()
-    def update(self, table, tid, values, cursor, conn):
+    def update(self, table, tid, params, cursor, conn):
+        values = None
+        for k, v in params.items():
+            values = "%s='%s'"%(k, v) if values is None else "%s, %s='%s'"%(values, k, v)
         sql_cmd = "update %s set %s where id='%s'" % (table, values, tid)
         cursor.execute(sql_cmd)
         conn.commit()
-    def push_to_deviceinfo_table(self, cursor, conn, dev):
+    def update_if_cannot_insert(self, table, tid, params, cursor, conn):
+        if self.in_table(tid, table, cursor, conn):
+            # update do not need 'id'
+            self.update(table, tid, params, cursor, conn)
+        else:
+            params['id'] = tid
+            self.insert(table, params, cursor, conn)
+    def push_device_to_table(self, dev, location, timestamp, cursor, conn):
         did = dev.getter('id')
         table = 'deviceinfo'
-        if self.in_table(did, table, cursor, conn):
-            keys = ['inroom', 'localip', 'token', 'type', 'model', 'name', 'status']
-            values = ""
-            for k in keys[:-1]:
-                values += k + "='" + dev.getter(k) + "', "
-            values += "status='" + dev.getter('status') + "' "
-            self.update(table, did, values, cursor, conn)
-        else:
-            keys = ['id', 'inroom', 'localip', 'token', 'type', 'model', 'name', 'status']
-            values = "'"
-            for k in keys[:-1]:
-                values += dev.getter(k) + "', '"
-            values += dev.getter('status') + "'"
-            self.insert(table, ', '.join(keys), values, cursor, conn)
-    def push_to_sensorinfo_table(self, cursor, conn, ssr):
+        keys = ['inroom', 'localip', 'token', 'type', 'model', 'name']
+        params = {k: dev.getter(k) for k in keys}
+        # turn 'status' to 'data': {"status":1}
+        params['data'] = json.dumps({'status': dev.getter('status')})
+        params['location'] = location
+        params['timestamp'] = timestamp
+        self.update_if_cannot_insert(table, did, params, cursor, conn)
+    def push_sensor_to_table(self, ssr, location, timestamp, cursor, conn):
         sid = ssr.getter('id')
-        table = 'sensorinfo'
-        if self.in_table(sid, table, cursor, conn):
-            keys = ['inroom', 'type', 'model', 'name', 'data']
-            values = ""
-            for k in keys[:-1]:
-                values += k + "='" + ssr.getter(k) + "', "
-            values += "data='" + json.dumps(ssr.getter('data')) + "' "
-            self.update(table, sid, values, cursor, conn)
-        else:
-            keys = ['id', 'inroom', 'type', 'model', 'name', 'data']
-            values = "'"
-            for k in keys[:-1]:
-                values += ssr.getter(k) + "', '"
-            values += json.dumps(ssr.getter('data')) + "'"
-            self.insert(table, ', '.join(keys), values, cursor, conn)
-    def push_to_database(self, terminal_infos):
+        table = 'deviceinfo'
+        keys = ['inroom', 'type', 'model', 'name']
+        params = {k: ssr.getter(k) for k in keys}
+        # 'data' need json.dumps
+        params['data'] = json.dumps(ssr.getter('data'))
+        params['location'] = location
+        params['timestamp'] = timestamp
+        self.update_if_cannot_insert(table, sid, params, cursor, conn)
+    def is_repeated(self, tid, cur_terminal):
+        if self._pre_terminal_infos is None:
+            return False
+        pre_terminal = self._pre_terminal_infos[tid]
+        return pre_terminal == cur_terminal # deep compare
+    def push_to_database(self, terminal_infos, repeated_filter=True):
         with self.conn.cursor() as cursor:
+            location = terminal_infos.location
+            timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             for tid, ins in terminal_infos.items():
+                if repeated_filter and self.is_repeated(tid, ins):
+                    continue
                 if ins.is_device():
-                    self.push_to_deviceinfo_table(cursor, self.conn, ins)
+                    self.push_device_to_table(ins, location, timestamp, cursor, self.conn)
                 elif ins.is_sensor():
-                    self.push_to_sensorinfo_table(cursor, self.conn, ins)
+                    self.push_sensor_to_table(ins, location, timestamp, cursor, self.conn)
                 else:
                     raise Exception('known terminal')
+        self._pre_terminal_infos = {k: v.copy() for k, v in terminal_infos.items()}
