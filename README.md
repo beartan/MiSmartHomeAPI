@@ -38,7 +38,7 @@
 ## 环境要求
 
 - python-miio: https://github.com/rytilahti/python-miio
-- PyXiaomiGateway: https://github.com/Danielhiversen/PyXiaomiGateway
+- PyXiaomiGateway: https://github.com/barrierye/PyXiaomiGateway
 - Django
 - Python3
 
