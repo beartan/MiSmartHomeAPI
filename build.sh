@@ -3,7 +3,7 @@ pip install django
 pip install sshtunnel
 pip install pymysql
 pip install python-miio
-git clone git@gitlab.act.buaa.edu.cn:yebw/pyxiaomigateway.git
+git clone https://github.com/barrierye/PyXiaomiGateway.git
 cd PyXiaomiGateway
 pip install wheel
 python setup.py bdist_wheel

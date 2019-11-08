@@ -51,7 +51,8 @@ class Monitor(threading.Thread):
                     old_ssr.update()
             for sid in ssr_manager:
                 if ssr_manager.is_sensor(sid) and sid not in seen_ssrs:
-                    ssr_manager.terminal(sid).setter('inroom', 'False')
+                    if ssr_manager.terminal(sid).is_belong_gateway(g):
+                        ssr_manager.terminal(sid).setter('inroom', 'False')
     def monitor_devices(self, dev_manager, discover_timeout):
         seen_devs = self.device_discover(discover_timeout)
         for did in seen_devs:
@@ -225,6 +226,9 @@ class Sensor(Terminal):
     def belong_gateway(self, g):
         with self.lock:
             self.belong = g
+    def is_belong_gateway(self, g):
+        with self.lock:
+            return self.belong == g
     @staticmethod
     def get_data(gateway_instance, sid):
         info = gateway_instance.get_data(sid)

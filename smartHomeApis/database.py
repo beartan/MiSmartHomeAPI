@@ -76,6 +76,8 @@ class DatabaseManager(object):
     def is_repeated(self, tid, cur_terminal):
         if self._pre_terminal_infos is None:
             return False
+        if self._pre_terminal_infos.get(tid) is None:
+            return False
         pre_terminal = self._pre_terminal_infos[tid]
         return pre_terminal == cur_terminal # deep compare
     def push_to_database(self, terminal_infos, repeated_filter=True):
