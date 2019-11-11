@@ -46,15 +46,17 @@
 
 1. 安装环境
 
-```bash
-sh build.sh
-```
+   ```bash
+   sh build.sh
+   ```
 
 2. 修改配置
 
    ```bash
-   mv smartHomeApis/config.example.py smartHomeApis/config.py # modify it
+   mv smartHomeApis/config.example.py smartHomeApis/config.py
    ```
+
+   并编辑`smartHomeApis/config.py`进行配置。
 
 3. 运行后端
 
