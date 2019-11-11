@@ -4,15 +4,6 @@
 
 
 
-参考home assistant：
-
-- 采用轮询方式更新设备信息。受限于设备单向通信问题（手动变更设备状态，设备不会发送变更信息给主机），采用轮询来更新主机上设备信息。
-- 设备token和网关密码等需要用户自己获取（可能有帮助：https://github.com/xcray/miio-by-CSharp）。
-  - 获取token手段：使用Android手机下载米家APP(v5.4.49)，用APP连接设备后，token以明文形式记录在APP的log文件（`/SmartHome/logs/\d{4}-\d{2}-\d{2}\.txt`）中。
-  - 获取网关密码信息：在米家APP中打开开发者模式获取信息。
-
-
-
 仅小米设备而言，我们目前买到的设备有如下几种设备：
 
 - chuangmi.plug.m3  创米插座（需要使用[python-miio](https://github.com/rytilahti/python-miio)库）
@@ -25,7 +16,16 @@
 
 
 
-但我们仅基于有限的设备做几个demo cases，不需要考虑所有设备。
+> 但我们仅基于有限的设备做几个demo cases，不需要考虑所有设备。
+
+
+
+参考home assistant：
+
+- 采用轮询方式更新设备信息。受限于设备单向通信问题（手动变更设备状态，设备不会发送变更信息给主机），采用轮询来更新主机上设备信息。
+- 设备token和网关密码等需要用户自己获取（可能有帮助：https://github.com/xcray/miio-by-CSharp）。
+  - 获取token手段：使用Android手机下载米家APP(v5.4.49)，用APP连接设备后，token以明文形式记录在APP的log文件（`/SmartHome/logs/\d{4}-\d{2}-\d{2}\.txt`）中。
+  - 获取网关密码信息：在米家APP中打开开发者模式获取信息。
 
 ## 目前实现
 
