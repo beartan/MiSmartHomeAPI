@@ -44,11 +44,23 @@
 
 ## 使用
 
+1. 安装环境
+
 ```bash
 sh build.sh
-mv smartHomeApis/config.example.py smartHomeApis/config.py # modify it
-python manage.py runserver 0.0.0.0:8000
 ```
+
+2. 修改配置
+
+   ```bash
+   mv smartHomeApis/config.example.py smartHomeApis/config.py # modify it
+   ```
+
+3. 运行后端
+
+   ```bash
+   python manage.py runserver 0.0.0.0:8000
+   ```
 
 ## 接口设计
 
