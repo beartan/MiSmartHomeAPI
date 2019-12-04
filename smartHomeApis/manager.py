@@ -23,16 +23,25 @@ class Monitor(threading.Thread):
         self.discover_timeout = discover_timeout
         self.database_manager = database_manager
     def run(self):
-        sleep_time = max(0, self.monitor_interval - self.discover_timeout)
         while True:
             sys.stdout.write(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())+'\n')
             self.monitor_devices(self.terminal_manager, self.discover_timeout)
-            self.monitor_sensors(self.terminal_manager)
+            self.monitor_sensors(self.terminal_manager, retry=5)
             sys.stdout.write(json.dumps(self.terminal_manager.copy(), indent=4)+'\n')
-            self.database_manager.push_to_database(self.terminal_manager, repeated_filter=True)
-            time.sleep(sleep_time)
-    def monitor_sensors(self, ssr_manager):
-        for mac, g in self.terminal_manager.gateways.items():
+            if self.database_manager is not None:
+                self.database_manager.push_to_database(self.terminal_manager, repeated_filter=True)
+            time.sleep(self.monitor_interval)
+    def monitor_sensors(self, ssr_manager, retry):
+        for mac, g_params in self.terminal_manager.gateways.items():
+            gid = g_params['did']
+            if not ssr_manager.registered(gid):
+                _LOGGER.warning(f"gateway[{gid}] not registered")
+                continue
+            if ssr_manager.terminal(gid).getter('inroom') != 'True':
+                _LOGGER.warning(f"gateway[{gid}] not in room")
+                continue
+            #TODO: do not instantiated every time
+            g = xiaomi_gateway.XiaomiGateway(g_params['localip'], g_params['port'], mac, g_params['password'], 1, 'any')
             seen_ssrs = g.discover_sensors()
             for sid in seen_ssrs:
                 if not ssr_manager.registered(sid):
@@ -126,10 +135,10 @@ class TerminalManager(dict):
     def __init__(self, defined_gateways, location):
         super(TerminalManager, self).__init__()
         self.lock = threading.Lock()
-        self.gateways = {}
+        self.gateways = copy.deepcopy(defined_gateways)
         self.location = location
-        for mac, params in defined_gateways.items():
-            self.gateways[mac] = xiaomi_gateway.XiaomiGateway(params['localip'], params['port'], params['mac'], params['password'], 1, 'any')
+        #  for mac, params in defined_gateways.items():
+            #  self.gateways[mac] = xiaomi_gateway.XiaomiGateway(params['localip'], params['port'], mac, params['password'], 1, 'any')
     def add(self, tid, terminal):
         with self.lock:
             self[tid] = terminal
@@ -270,8 +279,10 @@ class Manager(object):
         return self._instance
     def __init__(self):
         if not self._monitor:
-            self._database_manager = database.DatabaseManager(config.DATABASE['remote_ip'], config.DATABASE['remote_usr'], config.DATABASE['remote_pwd'],
-                        config.DATABASE['database_usr'], config.DATABASE['database_pwd'], config.DATABASE['database_name'])
+            self._database_manager = None
+            if config.PUSH_TO_DATABASE:
+                self._database_manager = database.DatabaseManager(config.DATABASE['remote_ip'], config.DATABASE['remote_usr'], config.DATABASE['remote_pwd'],
+                            config.DATABASE['database_usr'], config.DATABASE['database_pwd'], config.DATABASE['database_name'])
             self._terminal_manager = TerminalManager(config.GATEWAYS, config.LOCATION)
             self._monitor = Monitor(self._terminal_manager, self._database_manager, config.MONITOR_INTERVAL, config.DISCOVER_TIMEOUT)
             self._monitor.daemon = True

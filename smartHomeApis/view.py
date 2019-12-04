@@ -53,8 +53,8 @@ def manager(request, tid=None):
             s = int(status)
             if s == ps:
                 return HttpResponse(help_str())
-                
-        #  except miio.exceptions.DeviceException:
+
+        #TODO: control device by a manager instead of control it directly
         device = ceil.Ceil(ma.getter(tid, 'localip'), ma.getter(tid, 'token'))
         if s == 1:
             device.on()
