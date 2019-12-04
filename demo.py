@@ -23,8 +23,12 @@ def get_url(terminal_str):
     tid = terminals[terminal_str]
     return f"{base_url}/{tid}"
 
+def turn(terminal_str, data=None):
+    s = requests.Session()
+    s.post(get_url(terminal_str), data=data)
+
 async def service(interval):
-    print('[service] info: turn light on if humidity >= 55.0%%, interval: %ds' % interval)
+    print(f'[service] info: turn light on if humidity >= 55.0%%, interval: {interval}s')
     print('[service] start')
     s = requests.Session()
     while True:
@@ -36,9 +40,9 @@ async def service(interval):
             print(f' temperature: {temperature}')
             print(f' humidity: {humidity}')
             if humidity >= 55.0:
-                s.post(get_url('light'), data={'status': '1'})
+                turn('light', data={'status': '1'})
             else:
-                s.post(get_url('light'), data={'status': '0'})
+                turn('light', data={'status': '0'})
         except Exception as e:
             print(e)
         await asyncio.sleep(interval)

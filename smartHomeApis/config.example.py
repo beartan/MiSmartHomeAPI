@@ -3,9 +3,9 @@
 # Python release: 3.7.0
 
 # Monitor configure.
-MONITOR_INTERVAL = 2
-DISCOVER_TIMEOUT = 8
-PUSH_TO_DATABASE = True #False
+MONITOR_INTERVAL = 5
+DISCOVER_TIMEOUT = 5
+PUSH_TO_DATABASE = False
 
 # Location of terminals.
 # This item is asked by database module.
@@ -13,6 +13,7 @@ LOCATION = 'BUAA-NMB-G513'
     
 # Information of devices.
 # Notice that 'did' and 'token' must be provide.
+# If 'localip' is provided, the monitoring will be more reliable.
 DEVICES = {
     '235388260': {
         'token': 'eb6ce266e5a6c25cbc2515471634d2be',
@@ -32,6 +33,7 @@ DEVICES = {
     },
     '106456356': {
         'token': '545f0fd5b615192b39d22f526045b7fd',
+        'localip': '192.168.31.61',
         'name': 'fen',
     },
     '288438027': {
@@ -64,10 +66,10 @@ GATEWAYS = {
 }
 
 # Information of database and remote server.
-DATABASE = {
-    'remote_ip': '0.0.0.0',
-    'remote_usr': 'barriery',
-    'remote_pwd': 'wonderful',
+ATABASE = {
+    'remote_ip': '*.*.*.*',
+    'remote_usr': 'usr',
+    'remote_pwd': 'pwd',
     'database_usr': 'root',
     'database_pwd': 'password', 
     'database_name': 'database',

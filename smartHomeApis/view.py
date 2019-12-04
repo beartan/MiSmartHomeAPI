@@ -76,7 +76,7 @@ def help(request):
 def help_str():
     return '''
 PUT
-    - Description:  Add a device. The default status of device is off.
+    - Description:  Add a device.
     - Path:
         /<str:did>
     - Form:

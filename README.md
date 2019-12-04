@@ -7,12 +7,12 @@
 仅小米设备而言，我们目前买到的设备有如下几种设备：
 
 - chuangmi.plug.m3         创米插座（需要使用[python-miio](https://github.com/rytilahti/python-miio)库）
-- zhimi.airpurifier.ma2     智米空气净化器（需要使用python-miio库）
-- zhimi.fan.za4                   智米风扇（需要使用python-miio库）
+- zhimi.airpurifier.ma2     智米空气净化器（支持python-miio）
+- zhimi.fan.za4                   智米风扇（支持python-miio）
 - yeelink.light.lamp1         Yeelink台灯（python-miio库支持简单操作，复杂操作需要[python-yeelight](https://github.com/skorokithakis/python-yeelight)库）
 - lumi.gateway.v3              绿米网关（需要使用[PyXiaomiGateway](https://github.com/Danielhiversen/PyXiaomiGateway)库）
-- weather.v1                       Aqara温湿度传感器（支持PyXiaomiGateway库控制）
-- magnet                             门窗传感器（支持PyXiaomiGateway库控制）
+- weather.v1                       Aqara温湿度传感器（支持PyXiaomiGateway）
+- magnet                             门窗传感器（支持PyXiaomiGateway）
 - 米家蓝牙温湿度计            不支持米家普通网关控制（需要使用特殊的蓝牙网关，比如米家床头灯，米家1090P智能摄像机，yeelight智能LED吸顶灯等）
 
 智能家居目前没有一个统一的协议，就算是同一家公司的设备也多种多样。随着设备的增加会变得越来越复杂，个人基本无法完成，最好是借助其他较为完善的平台进行改造开发。
@@ -33,7 +33,6 @@
 - 定时监控局域网中的智能设备（需要被python-miio支持）和传感器（需要被PyXiaomiGateway支持）
 - 以REST APIs形式访问支持Wi-Fi的米家智能设备（控制开关）和传感器（获取状态）
 - 支持将监控数据上传到远程数据库
-- 存在问题: 智米风扇设备经常性无法被发现
 
 
 
@@ -72,7 +71,7 @@
 
 ```
 PUT
-    - Description:  Add a device. The default status of device is off.
+    - Description:  Add a device.
     - Path:
         /<str:did>
     - Form:

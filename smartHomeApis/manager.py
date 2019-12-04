@@ -18,47 +18,56 @@ from . import database
 _LOGGER = logging.getLogger(__name__)
 
 class Monitor(threading.Thread):
-    def __init__(self, terminal_manager, database_manager, monitor_interval, discover_timeout):
+    def __init__(self, terminal_manager, database_manager,
+            device_infos, sensor_infos, monitor_interval, discover_timeout):
         super(Monitor, self).__init__()
         self.terminal_manager = terminal_manager
         self.monitor_interval = monitor_interval
         self.discover_timeout = discover_timeout
         self.database_manager = database_manager
+        self.device_infos = device_infos
+        self.sensor_infos = sensor_infos
     def run(self):
         while True:
-            sys.stdout.write(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())+'\n')
-            self.monitor_devices(self.terminal_manager, self.discover_timeout)
-            self.monitor_sensors(self.terminal_manager)
-            sys.stdout.write(json.dumps(self.terminal_manager.copy(), indent=4)+'\n')
+            self.monitor_devices(self.terminal_manager, self.device_infos, self.discover_timeout)
+            self.monitor_sensors(self.terminal_manager, self.sensor_infos)
+            total = len(self.terminal_manager)
+            inroom = 0
+            for tid, terminal in self.terminal_manager.items():
+                if terminal.getter('inroom') == 'True':
+                    inroom += 1
+            _LOGGER.info(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
+            _LOGGER.info(f'TOTAL: {total}, INROOM: {inroom}, OUTROOM: {total-inroom}')
+            _LOGGER.info(json.dumps(self.terminal_manager.copy(), indent=4))
             if self.database_manager is not None:
                 self.database_manager.push_to_database(self.terminal_manager, repeated_filter=True)
             time.sleep(self.monitor_interval)
-    def monitor_sensors(self, ssr_manager):
+    def monitor_sensors(self, ssr_manager, ssr_infos):
         for mac, g_items in self.terminal_manager.gateways.items():
             gid = g_items['gid']
             can_discover = True
             if not ssr_manager.registered(gid):
-                _LOGGER.warning(f"gateway[{gid}] not registered")
+                _LOGGER.warning(f"gateway<{gid}> not registered")
                 can_discover = False
             elif ssr_manager.terminal(gid).getter('inroom') != 'True':
-                _LOGGER.warning(f"gateway[{gid}] not in room")
+                _LOGGER.warning(f"gateway<{gid}> not in room")
                 can_discover = False
-            elif not isinstance(self.device_discover(1, addr=ssr_manager.terminal(gid).getter('localip')), construct.lib.containers.Container):
-                _LOGGER.warning(f"gateway[{gid}] can not connect")
+            elif not self.is_device_inroom(ssr_manager.terminal(gid).getter('localip')):
+                _LOGGER.warning(f"gateway<{gid}> can not connect")
                 can_discover = False
             seen_ssrs = []
             if can_discover:
                 g = self.terminal_manager.get_instantiated_gateway(mac)
                 seen_ssrs = g.discover_sensors()
-                _LOGGER.info(f'seen_ssrs: {seen_ssrs}')
+                #  _LOGGER.info(f'seen_ssrs: {seen_ssrs}')
                 for sid in seen_ssrs:
                     if not ssr_manager.registered(sid):
                         new_ssr = Sensor()
                         new_ssr.belong_gateway(g, gid)
                         new_ssr.setter('inroom', 'True')
                         new_ssr.setter('id', sid)
-                        if sid in config.SENSORS:
-                            new_ssr.setter('name', config.SENSORS[sid].get('name'))
+                        if sid in ssr_infos:
+                            new_ssr.setter('name', ssr_infos[sid].get('name'))
                         new_ssr.update()
                         ssr_manager.add(sid, new_ssr)
                     else:
@@ -70,7 +79,7 @@ class Monitor(threading.Thread):
                 if ssr_manager.is_sensor(sid) and sid not in seen_ssrs:
                     if ssr_manager.terminal(sid).is_belong_gateway(gid):
                         ssr_manager.terminal(sid).setter('inroom', 'False')
-    def monitor_devices(self, dev_manager, discover_timeout):
+    def monitor_devices(self, dev_manager, dev_infos, discover_timeout):
         seen_devs = self.device_discover(discover_timeout)
         for did in seen_devs:
             dev = seen_devs.get(did)
@@ -79,9 +88,10 @@ class Monitor(threading.Thread):
                 new_dev.setter('inroom', 'True')
                 new_dev.setter('id', did)
                 new_dev.setter('localip', dev.get('localip'))
-                if did in config.DEVICES:
-                    new_dev.setter('token', config.DEVICES[did].get('token'))
-                    new_dev.setter('name', config.DEVICES[did].get('name'))
+                if did in dev_infos:
+                    params = dev_infos[did]
+                    new_dev.setter('token', params.get('token'))
+                    new_dev.setter('name', params.get('name'))
                 if dev.get('token'):
                     new_dev.setter('token', dev.get('token'))
                 new_dev.update()
@@ -98,14 +108,39 @@ class Monitor(threading.Thread):
         for did in dev_manager:
             if dev_manager.is_device(did) and did not in seen_devs:
                 dev_manager.terminal(did).setter('inroom', "False")
+        # check device be in the configure-file
+        for did, params in dev_infos.items():
+            if not dev_manager.registered(did):
+                if params.get('localip') is None:
+                    _LOGGER.warning(f'did<{did}> not discovered. Pls provide the localip.')
+                    continue
+                if not self.is_device_inroom(params.get('localip')):
+                    continue
+                new_dev = Device()
+                new_dev.setter('id', did)
+                new_dev.setter('token', params.get('token'))
+                new_dev.setter('name', params.get('name'))
+                new_dev.setter('localip', params.get('localip'))
+                new_dev.setter('inroom', 'True')
+                new_dev.update()
+                dev_manager.add(did, new_dev)
+            else:
+                old_dev = dev_manager.terminal(did)
+                if old_dev.getter('inroom') != 'True' and self.is_device_inroom(old_dev.getter('localip')):
+                    _LOGGER.info('%s is in room, but not discovered.' % old_dev.getter('name'))
+                    old_dev.update()
+                    dev_manager.terminal(did).setter('inroom', 'True')
+    def is_device_inroom(self, addr):
+        timeout = 1
+        obj = self.device_discover(timeout, addr=addr)
+        return isinstance(obj, construct.lib.containers.Container)
     def device_discover(self, timeout, addr=None):
         is_broadcast = addr is None
         seen_addrs = []  # type: List[str]
         if is_broadcast:
             addr = '<broadcast>'
             is_broadcast = True
-            _LOGGER.info("Sending discovery to %s with timeout of %ds..",
-                    addr, timeout)
+            _LOGGER.info(f"Sending discovery to {addr} with timeout of {timeout}s..")
         # magic, length 32
         helobytes = bytes.fromhex(
             '21310020ffffffffffffffffffffffffffffffffffffffffffffffffffffffff')
@@ -125,8 +160,7 @@ class Monitor(threading.Thread):
                     device_id = str(int(binascii.hexlify(m.header.value.device_id).decode(), 16))
                     localip = addr[0]
                     token = codecs.encode(m.checksum, 'hex').decode()
-                    _LOGGER.info("  IP %s (ID: %s) - token: %s", 
-                            localip, device_id, token)
+                    _LOGGER.info(f"  IP {localip} (ID: {device_id}) - token: {token}") 
                     seen_addrs.append(localip)
                     devices[device_id] = {'localip': localip}
                     if token != '00000000000000000000000000000000' and token != 'ffffffffffffffffffffffffffffffff':
@@ -136,7 +170,7 @@ class Monitor(threading.Thread):
                     _LOGGER.info("Discovery done")
                 return  devices # ignore timeouts on discover
             except Exception as ex:
-                _LOGGER.error("error while reading discover results: %s\n" % ex)
+                _LOGGER.error("error while reading discover results: %s" % ex)
                 break
 
 class TerminalManager(dict):
@@ -194,7 +228,7 @@ class Terminal(dict):
             if key not in self:
                 return False
             if value is None:
-                print('Value[None] is illegal')
+                _LOGGER.warning(f'{key}<{value}> is illegal')
                 return False
             self[key] = value
         return True
@@ -215,7 +249,7 @@ class Device(Terminal):
         try:
             return miio.ceil.Ceil(localip, token).info().__str__().split()[0]
         except Exception as e:
-            print(e)
+            _LOGGER.error('%s' % e)
             return None
     @staticmethod
     def get_status(localip, token):
@@ -223,7 +257,7 @@ class Device(Terminal):
             if miio.ceil.Ceil(localip, token).status().power == 'on':
                 return '1'
         except Exception as e:
-            print(e)
+            _LOGGER.error('%s' % e)
         return '0'
     def update_model(self):
         localip = self.getter('localip')
@@ -303,10 +337,13 @@ class Manager(object):
         if not self._monitor:
             self._database_manager = None
             if config.PUSH_TO_DATABASE:
-                self._database_manager = database.DatabaseManager(config.DATABASE['remote_ip'], config.DATABASE['remote_usr'], config.DATABASE['remote_pwd'],
-                            config.DATABASE['database_usr'], config.DATABASE['database_pwd'], config.DATABASE['database_name'])
+                self._database_manager = database.DatabaseManager(config.DATABASE['remote_ip'], config.DATABASE['remote_usr'],
+                                                                  config.DATABASE['remote_pwd'], config.DATABASE['database_usr'],
+                                                                  config.DATABASE['database_pwd'], config.DATABASE['database_name'])
             self._terminal_manager = TerminalManager(config.GATEWAYS, config.LOCATION)
-            self._monitor = Monitor(self._terminal_manager, self._database_manager, config.MONITOR_INTERVAL, config.DISCOVER_TIMEOUT)
+            self._monitor = Monitor(self._terminal_manager, self._database_manager,
+                                    config.DEVICES, config.SENSORS,
+                                    config.MONITOR_INTERVAL, config.DISCOVER_TIMEOUT)
             self._monitor.daemon = True
             self._monitor.start()
     def add_device(self, did, params):
