@@ -5,7 +5,7 @@ import sys
 import logging
 
 def main():
-    logging.basicConfig(level=logging.INFO)
+    #  logging.basicConfig(level=logging.INFO)
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'smartHomeApis.settings')
     try:
         from django.core.management import execute_from_command_line

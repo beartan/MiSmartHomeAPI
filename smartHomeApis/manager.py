@@ -1,13 +1,15 @@
-import sys
-import time
-import json
-import copy
-import miio
-import socket
 import binascii
 import codecs
-import threading
+import construct
+import copy
+import json
 import logging
+import socket
+import sys
+import time
+import threading
+
+import miio
 import xiaomi_gateway
 
 from . import config
@@ -26,41 +28,47 @@ class Monitor(threading.Thread):
         while True:
             sys.stdout.write(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())+'\n')
             self.monitor_devices(self.terminal_manager, self.discover_timeout)
-            self.monitor_sensors(self.terminal_manager, retry=5)
+            self.monitor_sensors(self.terminal_manager)
             sys.stdout.write(json.dumps(self.terminal_manager.copy(), indent=4)+'\n')
             if self.database_manager is not None:
                 self.database_manager.push_to_database(self.terminal_manager, repeated_filter=True)
             time.sleep(self.monitor_interval)
-    def monitor_sensors(self, ssr_manager, retry):
-        for mac, g_params in self.terminal_manager.gateways.items():
-            gid = g_params['did']
+    def monitor_sensors(self, ssr_manager):
+        for mac, g_items in self.terminal_manager.gateways.items():
+            gid = g_items['gid']
+            can_discover = True
             if not ssr_manager.registered(gid):
                 _LOGGER.warning(f"gateway[{gid}] not registered")
-                continue
-            if ssr_manager.terminal(gid).getter('inroom') != 'True':
+                can_discover = False
+            elif ssr_manager.terminal(gid).getter('inroom') != 'True':
                 _LOGGER.warning(f"gateway[{gid}] not in room")
-                continue
-            #TODO: do not instantiated every time
-            g = xiaomi_gateway.XiaomiGateway(g_params['localip'], g_params['port'], mac, g_params['password'], 1, 'any')
-            seen_ssrs = g.discover_sensors()
-            for sid in seen_ssrs:
-                if not ssr_manager.registered(sid):
-                    new_ssr = Sensor()
-                    new_ssr.belong_gateway(g)
-                    new_ssr.setter('inroom', 'True')
-                    new_ssr.setter('id', sid)
-                    if sid in config.SENSORS:
-                        new_ssr.setter('name', config.SENSORS[sid].get('name'))
-                    new_ssr.update()
-                    ssr_manager.add(sid, new_ssr)
-                else:
-                    old_ssr = ssr_manager.terminal(sid)
-                    if old_ssr.getter('inroom') != 'True':
-                        old_ssr.setter('inroom', 'True')
-                    old_ssr.update()
+                can_discover = False
+            elif not isinstance(self.device_discover(1, addr=ssr_manager.terminal(gid).getter('localip')), construct.lib.containers.Container):
+                _LOGGER.warning(f"gateway[{gid}] can not connect")
+                can_discover = False
+            seen_ssrs = []
+            if can_discover:
+                g = self.terminal_manager.get_instantiated_gateway(mac)
+                seen_ssrs = g.discover_sensors()
+                _LOGGER.info(f'seen_ssrs: {seen_ssrs}')
+                for sid in seen_ssrs:
+                    if not ssr_manager.registered(sid):
+                        new_ssr = Sensor()
+                        new_ssr.belong_gateway(g, gid)
+                        new_ssr.setter('inroom', 'True')
+                        new_ssr.setter('id', sid)
+                        if sid in config.SENSORS:
+                            new_ssr.setter('name', config.SENSORS[sid].get('name'))
+                        new_ssr.update()
+                        ssr_manager.add(sid, new_ssr)
+                    else:
+                        old_ssr = ssr_manager.terminal(sid)
+                        if old_ssr.getter('inroom') != 'True':
+                            old_ssr.setter('inroom', 'True')
+                        old_ssr.update()
             for sid in ssr_manager:
                 if ssr_manager.is_sensor(sid) and sid not in seen_ssrs:
-                    if ssr_manager.terminal(sid).is_belong_gateway(g):
+                    if ssr_manager.terminal(sid).is_belong_gateway(gid):
                         ssr_manager.terminal(sid).setter('inroom', 'False')
     def monitor_devices(self, dev_manager, discover_timeout):
         seen_devs = self.device_discover(discover_timeout)
@@ -135,10 +143,22 @@ class TerminalManager(dict):
     def __init__(self, defined_gateways, location):
         super(TerminalManager, self).__init__()
         self.lock = threading.Lock()
-        self.gateways = copy.deepcopy(defined_gateways)
+        self.gateways = {}
         self.location = location
-        #  for mac, params in defined_gateways.items():
-            #  self.gateways[mac] = xiaomi_gateway.XiaomiGateway(params['localip'], params['port'], mac, params['password'], 1, 'any')
+        for mac, params in defined_gateways.items():
+            self.gateways[mac] = {
+                'instance': None,
+                'gid': params['did'],
+                'params': params,
+            }
+    def get_instantiated_gateway(self, mac):
+        if self.gateways[mac]['instance'] is not None:
+            return self.gateways[mac]['instance']
+        with self.lock:
+            params = self.gateways[mac]['params']
+            self.gateways[mac]['instance'] = \
+                    xiaomi_gateway.XiaomiGateway(params['localip'], params['port'], mac, params['password'], 1, 'any')
+            return self.gateways[mac]['instance']
     def add(self, tid, terminal):
         with self.lock:
             self[tid] = terminal
@@ -231,13 +251,15 @@ class Sensor(Terminal):
     def __init__(self):
         super(Sensor, self).__init__()
         self.belong = None
+        self.belong_gid = None
         self['type'] = 'Sensor'
-    def belong_gateway(self, g):
+    def belong_gateway(self, g, gid):
         with self.lock:
             self.belong = g
-    def is_belong_gateway(self, g):
+            self.belong_gid = gid
+    def is_belong_gateway(self, gid):
         with self.lock:
-            return self.belong == g
+            return self.belong_gid == gid
     @staticmethod
     def get_data(gateway_instance, sid):
         info = gateway_instance.get_data(sid)
