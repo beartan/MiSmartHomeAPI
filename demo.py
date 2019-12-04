@@ -48,4 +48,5 @@ async def service(interval):
         await asyncio.sleep(interval)
 
 if __name__ == '__main__':
+    # gateway update data every 10s
     asyncio.run(service(5))

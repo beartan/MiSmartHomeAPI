@@ -364,6 +364,7 @@ class Manager(object):
                 old_dev.setter('name', params.get('name'))
     def get_terminal(self, tid=None):
         if self.registered(tid):
+            self.update_sensor(tid)
             return self._terminal_manager.terminal(tid)
         return self._terminal_manager
     def get_json_string(self, tid=None, indent=4):
@@ -375,6 +376,13 @@ class Manager(object):
         return True
     def registered(self, tid):
         return self._terminal_manager.registered(tid)
+    def update_sensor(self, sid):
+        if self.is_sensor(sid):
+            self._terminal_manager.terminal(sid).update()
+    def is_sensor(self, tid):
+        return self._terminal_manager.terminal(tid).is_sensor()
+    def is_device(self, tid):
+        return self._terminal_manager.terminal(tid).is_device()
     def getter(self, tid, key):
         return self._terminal_manager.terminal(tid).getter(key)
     def setter(self, tid, key, value):
