@@ -41,6 +41,7 @@ class Monitor(threading.Thread):
             _LOGGER.info(json.dumps(self.terminal_manager.copy(), indent=4))
             if self.database_manager is not None:
                 self.database_manager.push_to_database(self.terminal_manager, repeated_filter=True)
+                _LOGGER.info('push to database successful')
             time.sleep(self.monitor_interval)
     def monitor_sensors(self, ssr_manager, ssr_infos):
         for mac, g_items in self.terminal_manager.gateways.items():
