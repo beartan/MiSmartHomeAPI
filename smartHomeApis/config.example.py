@@ -31,7 +31,7 @@ DEVICES = {
     }, '106456356': {
         'token': '545f0fd5b615192b39d22f526045b7fd',
         'name': 'fan',
-        'localip': '192.168.31.61', # add for the reliability of monitoring
+        'localip': '192.168.31.61', # add for enhancing reliability of monitoring
     }, '288438027': {
         'token': '08f20c812846082502ecb77735f85f3e',
         'name': 'airpurifier',
@@ -41,12 +41,14 @@ DEVICES = {
 # Information of sensors.
 # This item is not neccessary, unless you want to set the 'name'. You may need
 # to attention that different sensors have different data update intervals. For
-# example, 'weather' updates every 10 seconds, whilt 'magnet' updates every seconds.
+# example, 'weather' updates every 10 seconds, while 'magnet' updates every seconds.
 SENSORS = {
     '158d0002d798b6': {
         'name': 'weather',
     }, '158d0004318a22': {
         'name': 'magnet',
+    }, '04CF8CAA9715': {
+        'name': 'light'
     },
 }
 

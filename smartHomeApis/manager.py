@@ -27,20 +27,32 @@ class Monitor(threading.Thread):
         self.database_manager = database_manager
         self.device_infos = device_infos
         self.sensor_infos = sensor_infos
+    def monitor_log(self):
+        _LOGGER.info(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
+        _LOGGER.info(json.dumps(self.terminal_manager.copy(), indent=4))
+        dev_total, dev_inroom = 0, 0
+        ssr_total, ssr_inroom = 0, 0
+        for tid, terminal in self.terminal_manager.items():
+            if terminal.is_device():
+                dev_total += 1
+                if terminal.getter('inroom') == 'True':
+                    dev_inroom += 1
+            elif terminal.is_sensor():
+                ssr_total += 1
+                if terminal.getter('inroom') == 'True':
+                    ssr_inroom += 1
+        _LOGGER.info(f'DEVICE - inroom: {dev_inroom}, outroom: {dev_total-dev_inroom}, total: {dev_total}')
+        _LOGGER.info(f'SENSOR - inroom: {ssr_inroom}, outroom: {ssr_total-ssr_inroom}, total: {ssr_total}')
+        _LOGGER.info(f'ALL - inroom: {dev_inroom+ssr_inroom}, outroom: {dev_total+ssr_total-dev_inroom-ssr_inroom} total: {dev_total+ssr_total}')
+        if ssr_inroom == 0:
+            _LOGGER.warning('Can not discover any sensor, maybe all gateways are out of contact.')
+        if ssr_inroom + dev_inroom == 0:
+            _LOGGER.warning('Can not discover any device or sensor, maybe you are in a different LAN.')
     def run(self):
         while True:
             self.monitor_devices(self.terminal_manager, self.device_infos, self.discover_timeout)
             self.monitor_sensors(self.terminal_manager, self.sensor_infos)
-            total = len(self.terminal_manager)
-            inroom = 0
-            for tid, terminal in self.terminal_manager.items():
-                if terminal.getter('inroom') == 'True':
-                    inroom += 1
-            _LOGGER.info(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
-            _LOGGER.info(json.dumps(self.terminal_manager.copy(), indent=4))
-            _LOGGER.info(f'TOTAL: {total}, INROOM: {inroom}, OUTROOM: {total-inroom}')
-            if inroom == 0:
-                _LOGGER.warning('Can not discover any device or sensor, maybe you are in a different LAN.')
+            self.monitor_log()
             if self.database_manager is not None:
                 self.database_manager.push_to_database(self.terminal_manager, repeated_filter=True)
                 _LOGGER.info('Push to database successful')
@@ -307,6 +319,8 @@ class Sensor(Terminal):
     @staticmethod
     def get_model(gateway_instance, sid):
         info = gateway_instance.get_data(sid)
+        if info is None:
+            return None
         return info.get('model')
     def update_data(self):
         gateway = self.belong
@@ -366,7 +380,8 @@ class Manager(object):
                 old_dev.setter('name', params.get('name'))
     def get_terminal(self, tid=None):
         if self.registered(tid):
-            self.update_sensor(tid)
+            if self.is_inroom(tid):
+                self.update_sensor(tid)
             return self._terminal_manager.terminal(tid)
         return self._terminal_manager
     def get_json_string(self, tid=None, indent=4):
@@ -378,6 +393,8 @@ class Manager(object):
         return True
     def registered(self, tid):
         return self._terminal_manager.registered(tid)
+    def is_inroom(self, tid):
+        return self.getter(tid, 'inroom') == 'True'
     def update_sensor(self, sid):
         if self.is_sensor(sid):
             self._terminal_manager.terminal(sid).update()

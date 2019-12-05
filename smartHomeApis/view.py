@@ -39,7 +39,7 @@ def manager(request, tid=None):
     elif request.method == 'POST':
         if not ma.registered(tid):
             return HttpResponseBadRequest("device has been not registered.\n")
-        if ma.getter(tid, 'inroom') == "False":
+        if not ma.is_inroom(tid):
             return HttpResponseBadRequest("device not in room.\n")
         requested_params = ['localip', 'token']
         for param in requested_params:

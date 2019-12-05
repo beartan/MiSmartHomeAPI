@@ -13,8 +13,9 @@ terminals = {
     'speaker': '295339237',
     'fan': '106456356',
     'airpurifier': '288438027',
-    'weather': '158d0002d798b6',
-    'magnet': '158d0004318a22',
+    'weather_ssr': '158d0002d798b6',
+    'magnet_ssr': '158d0004318a22',
+    'light_ssr': '04CF8CAA9715',
 }
 
 def get_url(terminal_str):
@@ -38,20 +39,19 @@ def turn(terminal_str, data=None):
     s.post(get_url(terminal_str), data=data)
 
 async def service(interval):
-    print(f'[service] info: turn lamp on if humidity >= 55.0%%, interval: {interval}s')
+    print(f'[service] info: Turn on the lamp when the environment is dark(illumination < 1000), interval: {interval}s')
     print('[service] start')
     while True:
-        data = get('weather')['data']
-        if data is not None:
-            temperature = float(data['temperature']) / 100.0
-            humidity = float(data['humidity']) / 100.0
-            print(f' temperature: {temperature}')
-            print(f' humidity: {humidity}')
-            if humidity >= 55.0:
+        ret = get('light_ssr')
+        if ret is not None:
+            data = ret['data']
+            illumination = data['illumination']
+            print(f' illumination: {illumination}')
+            if illumination < 1000:
                 turn('lamp', data={'status': '1'})
             else:
                 turn('lamp', data={'status': '0'})
         await asyncio.sleep(interval)
 
 if __name__ == '__main__':
-    asyncio.run(service(5))
+    asyncio.run(service(1))
