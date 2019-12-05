@@ -2,7 +2,7 @@
 
 基于PyXiaomiGateway，python-miio，Django后端的小米智能家居RESTful HTTP API。
 
-
+### 项目定位
 
 仅小米设备而言，我们目前买到的设备有如下几种设备：
 
@@ -19,8 +19,6 @@
 
 > 但我们仅基于有限的设备做几个demo cases，不需要考虑所有设备。
 
-
-
 参考home assistant：
 
 - 采用轮询方式更新设备信息。受限于设备单向通信问题（手动变更设备状态，设备不会发送变更信息给主机），采用轮询来更新主机上设备信息。
@@ -28,22 +26,20 @@
   - 获取token手段：使用Android手机下载米家APP(v5.4.49)，用APP连接设备后，token以明文形式记录在APP的log文件（`/SmartHome/logs/\d{4}-\d{2}-\d{2}\.txt`）中。
   - 获取网关密码信息：在米家APP中打开开发者模式获取信息。
 
-## 目前实现
+### 目前实现
 
 - 定时监控局域网中的智能设备（需要被python-miio支持）和传感器（需要被PyXiaomiGateway支持）
 - 以REST APIs形式访问支持Wi-Fi的米家智能设备（控制开关）和传感器（获取状态）
 - 支持将监控数据上传到远程数据库
 
-
-
-## 环境要求
+### 环境要求
 
 - python-miio: https://github.com/rytilahti/python-miio
 - PyXiaomiGateway: https://github.com/barrierye/PyXiaomiGateway
 - Django
 - Python3
 
-## 使用
+### 使用
 
 1. 安装环境
 
@@ -65,7 +61,7 @@
    python manage.py runserver 0.0.0.0:8000
    ```
 
-## 接口设计
+### 接口设计
 
 访问`/help`显示如下接口文档：
 
@@ -95,11 +91,10 @@ POST
         @status     0 or 1(not necessary)
 ```
 
-
-
-## 注意
+### 注意
 
 1. 由于可以通过`GET`方法直接获取每个注册设备的信息，存在严重的安全隐患。
 2. 后端会持续将设备信息发送到数据库，存在严重的隐私安全隐患。
-3. 设备的插拔不会改变localip与token，设备的重置会改变token
+3. 设备的插拔不会改变localip与token，设备的重置会改变token。
+4. 不同传感器数据更新时间不同，如门窗传感器每秒更新，而温度传感器每十秒更新。
 

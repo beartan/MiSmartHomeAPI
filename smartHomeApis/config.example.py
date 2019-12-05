@@ -12,43 +12,40 @@ PUSH_TO_DATABASE = False
 LOCATION = 'BUAA-NMB-G513'
     
 # Information of devices.
-# Notice that 'did' and 'token' must be provide.
-# If 'localip' is provided, the monitoring will be more reliable.
+# Notice that 'did' and 'token' must be provide, and if 'localip' is provided,
+# the monitoring will be more reliable. For example, the fan can not be detected
+# frequently, so add 'localip' to enhance the reliability of monitoring.
 DEVICES = {
     '235388260': {
         'token': 'eb6ce266e5a6c25cbc2515471634d2be',
         'name': 'light',
-    },
-    '236738672': {
+    }, '236738672': {
         'token': 'd0706b31c18bb0e7baae320a80700ece',
         'name': 'pulg',
-    },
-    '133638119': {
+    }, '133638119': {
         'token': 'e1ab4a0a3e2fbc4c1501aa395fd795ec',
         'name': 'gateway',
-    },
-    '295339237': {
+    }, '295339237': {
         'token': '474c666a79446773666b7a666154414a',
         'name': 'speaker',
-    },
-    '106456356': {
+    }, '106456356': {
         'token': '545f0fd5b615192b39d22f526045b7fd',
-        'localip': '192.168.31.61',
-        'name': 'fen',
-    },
-    '288438027': {
+        'name': 'fan',
+        'localip': '192.168.31.61', # add for the reliability of monitoring
+    }, '288438027': {
         'token': '08f20c812846082502ecb77735f85f3e',
         'name': 'airpurifier',
     },
 }
 
 # Information of sensors.
-# This item is not neccessary, unless you want to set the 'name'.
+# This item is not neccessary, unless you want to set the 'name'. You may need
+# to attention that different sensors have different data update intervals. For
+# example, 'weather' updates every 10 seconds, whilt 'magnet' updates every seconds.
 SENSORS = {
     '158d0002d798b6': {
         'name': 'weather',
-    },
-    '158d0004318a22': {
+    }, '158d0004318a22': {
         'name': 'magnet',
     },
 }
@@ -66,10 +63,10 @@ GATEWAYS = {
 }
 
 # Information of database and remote server.
-ATABASE = {
+DATABASE = {
     'remote_ip': '*.*.*.*',
-    'remote_usr': 'usr',
-    'remote_pwd': 'pwd',
+    'remote_usr': 'barriery',
+    'remote_pwd': 'the password of barriery',
     'database_usr': 'root',
     'database_pwd': 'password', 
     'database_name': 'database',

@@ -37,30 +37,31 @@ class Monitor(threading.Thread):
                 if terminal.getter('inroom') == 'True':
                     inroom += 1
             _LOGGER.info(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
-            _LOGGER.info(f'TOTAL: {total}, INROOM: {inroom}, OUTROOM: {total-inroom}')
             _LOGGER.info(json.dumps(self.terminal_manager.copy(), indent=4))
+            _LOGGER.info(f'TOTAL: {total}, INROOM: {inroom}, OUTROOM: {total-inroom}')
+            if inroom == 0:
+                _LOGGER.warning('Can not discover any device or sensor, maybe you are in a different LAN.')
             if self.database_manager is not None:
                 self.database_manager.push_to_database(self.terminal_manager, repeated_filter=True)
-                _LOGGER.info('push to database successful')
+                _LOGGER.info('Push to database successful')
             time.sleep(self.monitor_interval)
     def monitor_sensors(self, ssr_manager, ssr_infos):
         for mac, g_items in self.terminal_manager.gateways.items():
             gid = g_items['gid']
             can_discover = True
             if not ssr_manager.registered(gid):
-                _LOGGER.warning(f"gateway<{gid}> not registered")
+                _LOGGER.warning(f"Gateway<{gid}> not registered")
                 can_discover = False
             elif ssr_manager.terminal(gid).getter('inroom') != 'True':
-                _LOGGER.warning(f"gateway<{gid}> not in room")
+                _LOGGER.warning(f"Gateway<{gid}> not in room")
                 can_discover = False
             elif not self.is_device_inroom(ssr_manager.terminal(gid).getter('localip')):
-                _LOGGER.warning(f"gateway<{gid}> can not connect")
+                _LOGGER.warning(f"Gateway<{gid}> can not connect")
                 can_discover = False
             seen_ssrs = []
             if can_discover:
                 g = self.terminal_manager.get_instantiated_gateway(mac)
                 seen_ssrs = g.discover_sensors()
-                #  _LOGGER.info(f'seen_ssrs: {seen_ssrs}')
                 for sid in seen_ssrs:
                     if not ssr_manager.registered(sid):
                         new_ssr = Sensor()
@@ -113,7 +114,8 @@ class Monitor(threading.Thread):
         for did, params in dev_infos.items():
             if not dev_manager.registered(did):
                 if params.get('localip') is None:
-                    _LOGGER.warning(f'did<{did}> not discovered. Pls provide the localip.')
+                    name = params.get('name')
+                    _LOGGER.warning(f'did<{did}>[name: {name}] not discovered. Pls provide the localip.')
                     continue
                 if not self.is_device_inroom(params.get('localip')):
                     continue
