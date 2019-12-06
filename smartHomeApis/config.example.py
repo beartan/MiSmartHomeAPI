@@ -9,7 +9,7 @@ PUSH_TO_DATABASE = False
 
 # Location of terminals.
 # This item is asked by database module.
-LOCATION = 'BUAA-NMB-G513'
+LOCATION = 'NMB-G513'
     
 # Information of devices.
 # Notice that 'did' and 'token' must be provide, and if 'localip' is provided,
@@ -36,6 +36,10 @@ DEVICES = {
         'token': '08f20c812846082502ecb77735f85f3e',
         'name': 'airpurifier',
     },
+    '134078488': {
+        'token': 'a44640db2d0eb407378003d1bfb22936',
+        'name': 'humidifier',
+    },
 }
 
 # Information of sensors.
@@ -55,16 +59,6 @@ SENSORS = {
 # Information of gateways.
 # You must configure it if you have sensors. Every params in this item is neccessary,
 # and pay attention that the value of param 'did' must match the one in DEVICES item.
-GATEWAYS = {
-    '04CF8CAA9715': {
-        'localip': '192.168.31.206',
-        'port': '9898',
-        'did': '133638119',
-        'password': 'i79bq7rypjw1jkcy',
-    },
-}
-
-# Information of database and remote server.
 DATABASE = {
     'remote_ip': '*.*.*.*',
     'remote_usr': 'barriery',

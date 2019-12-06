@@ -44,7 +44,7 @@ class Monitor(threading.Thread):
         _LOGGER.info(f'DEVICE - inroom: {dev_inroom}, outroom: {dev_total-dev_inroom}, total: {dev_total}')
         _LOGGER.info(f'SENSOR - inroom: {ssr_inroom}, outroom: {ssr_total-ssr_inroom}, total: {ssr_total}')
         _LOGGER.info(f'ALL - inroom: {dev_inroom+ssr_inroom}, outroom: {dev_total+ssr_total-dev_inroom-ssr_inroom} total: {dev_total+ssr_total}')
-        if ssr_inroom == 0:
+        if ssr_inroom == 0 and ssr_total != 0:
             _LOGGER.warning('Can not discover any sensor, maybe all gateways are out of contact.')
         if ssr_inroom + dev_inroom == 0:
             _LOGGER.warning('Can not discover any device or sensor, maybe you are in a different LAN.')
@@ -178,7 +178,7 @@ class Monitor(threading.Thread):
                     _LOGGER.info(f"  IP {localip} (ID: {device_id}) - token: {token}") 
                     seen_addrs.append(localip)
                     devices[device_id] = {'localip': localip}
-                    if token != '00000000000000000000000000000000' and token != 'ffffffffffffffffffffffffffffffff':
+                    if token not in ['00000000000000000000000000000000', 'ffffffffffffffffffffffffffffffff']:
                         devices[device_id]['token'] = token
             except socket.timeout:
                 if is_broadcast:
@@ -269,7 +269,13 @@ class Device(Terminal):
     @staticmethod
     def get_status(localip, token):
         try:
-            if miio.ceil.Ceil(localip, token).status().power == 'on':
+            #  if miio.ceil.Ceil(localip, token).status().power == 'on':
+                #  return '1'
+
+            # Status not worked for AirHumidifier CA1t 
+            # see: https://github.com/rytilahti/python-miio/issues/383
+            power = miio.ceil.Ceil(localip, token).send("get_prop", ['power'])[0]
+            if power == 'on':
                 return '1'
         except Exception as e:
             _LOGGER.error('%s' % e)
@@ -293,7 +299,7 @@ class Device(Terminal):
     def update(self):
         self.update_model()
         self.update_status()
-        if self.get('name') is None:
+        if self.getter('name') is None and self.getter('model') is not None:
             self.setter('name', self.getter('model'))
 
 class Sensor(Terminal):
@@ -339,7 +345,7 @@ class Sensor(Terminal):
     def update(self):
         self.update_data()
         self.update_model()
-        if self.get('name') is None:
+        if self.getter('name') is None and self.getter('model') is not None:
             self.setter('name', self.getter('model'))
 
 class Manager(object):

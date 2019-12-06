@@ -13,6 +13,7 @@ terminals = {
     'speaker': '295339237',
     'fan': '106456356',
     'airpurifier': '288438027',
+    'humidifier': '134078488',
     'weather_ssr': '158d0002d798b6',
     'magnet_ssr': '158d0004318a22',
     'light_ssr': '04CF8CAA9715',
