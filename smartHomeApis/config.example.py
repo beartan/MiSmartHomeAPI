@@ -35,8 +35,7 @@ DEVICES = {
     }, '288438027': {
         'token': '08f20c812846082502ecb77735f85f3e',
         'name': 'airpurifier',
-    },
-    '134078488': {
+    }, '134078488': {
         'token': 'a44640db2d0eb407378003d1bfb22936',
         'name': 'humidifier',
     },
@@ -59,6 +58,16 @@ SENSORS = {
 # Information of gateways.
 # You must configure it if you have sensors. Every params in this item is neccessary,
 # and pay attention that the value of param 'did' must match the one in DEVICES item.
+GATEWAYS = {
+    '04CF8CAA9715': {
+        'localip': '192.168.31.206',
+        'port': '9898',
+        'did': '133638119',
+        'password': 'i79bq7rypjw1jkcy',
+    },
+}
+
+# Information of database and remote server.
 DATABASE = {
     'remote_ip': '*.*.*.*',
     'remote_usr': 'barriery',
