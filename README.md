@@ -61,6 +61,12 @@
    python manage.py runserver 0.0.0.0:8000
    ```
 
+4. 运行demo
+   
+   ```bash
+   python demo.py
+   ```
+
 ### 接口设计
 
 访问`/help`显示如下接口文档：
