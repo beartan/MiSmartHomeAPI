@@ -2,6 +2,8 @@
 # Copyright (c) 2019 barriery
 # Python release: 3.7.0
 
+SIMPLE_OUTPUT = False
+
 # Monitor configure.
 MONITOR_INTERVAL = 5
 DISCOVER_TIMEOUT = 5
@@ -52,6 +54,10 @@ SENSORS = {
         'name': 'magnet',
     }, '04CF8CAA9715': {
         'name': 'light'
+    }, '158d0003f2959f': {
+        'name': 'motion',
+    }, '158d0002c3b2d0': {
+        'name': 'vibration',
     },
 }
 
@@ -71,7 +77,7 @@ GATEWAYS = {
 DATABASE = {
     'remote_ip': '*.*.*.*',
     'remote_usr': 'barriery',
-    'remote_pwd': 'the password of barriery',
+    'remote_pwd': 'password of barriery',
     'database_usr': 'root',
     'database_pwd': 'password', 
     'database_name': 'database',

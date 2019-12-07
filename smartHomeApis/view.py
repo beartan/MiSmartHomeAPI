@@ -29,7 +29,7 @@ def manager(request, tid=None):
         return HttpResponse(ma.get_json_string(tid))
     elif request.method == 'GET':
         if tid is not None and not ma.registered(tid):
-            return HttpResponseBadRequest("terminal not reversed.\n")
+            return HttpResponseBadRequest("terminal not registered.\n")
         return HttpResponse(ma.get_json_string(tid))
     elif request.method == 'DELETE':
         if not ma.registered(tid):

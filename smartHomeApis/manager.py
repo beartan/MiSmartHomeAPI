@@ -19,7 +19,8 @@ _LOGGER = logging.getLogger(__name__)
 
 class Monitor(threading.Thread):
     def __init__(self, terminal_manager, database_manager,
-            device_infos, sensor_infos, monitor_interval, discover_timeout):
+            device_infos, sensor_infos, monitor_interval,
+            discover_timeout, simple_output=False):
         super(Monitor, self).__init__()
         self.terminal_manager = terminal_manager
         self.monitor_interval = monitor_interval
@@ -27,9 +28,18 @@ class Monitor(threading.Thread):
         self.database_manager = database_manager
         self.device_infos = device_infos
         self.sensor_infos = sensor_infos
+        self.simple_output = simple_output
     def monitor_log(self):
         _LOGGER.info(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
-        _LOGGER.info(json.dumps(self.terminal_manager.copy(), indent=4))
+        if self.simple_output:
+            temp_terminals = {}
+            for t, params in self.terminal_manager.copy().items():
+                if params.get('inroom') == 'True':
+                    name = params.get('name')
+                    temp_terminals[name] = params['data'] if params['type'] == 'Sensor' else params['status']
+            _LOGGER.info(json.dumps(temp_terminals, indent=4))
+        else:
+            _LOGGER.info(json.dumps(self.terminal_manager.copy(), indent=4))
         dev_total, dev_inroom = 0, 0
         ssr_total, ssr_inroom = 0, 0
         for tid, terminal in self.terminal_manager.items():
@@ -74,21 +84,22 @@ class Monitor(threading.Thread):
             if can_discover:
                 g = self.terminal_manager.get_instantiated_gateway(mac)
                 seen_ssrs = g.discover_sensors()
-                for sid in seen_ssrs:
-                    if not ssr_manager.registered(sid):
-                        new_ssr = Sensor()
-                        new_ssr.belong_gateway(g, gid)
-                        new_ssr.setter('inroom', 'True')
-                        new_ssr.setter('id', sid)
-                        if sid in ssr_infos:
-                            new_ssr.setter('name', ssr_infos[sid].get('name'))
-                        new_ssr.update()
-                        ssr_manager.add(sid, new_ssr)
-                    else:
-                        old_ssr = ssr_manager.terminal(sid)
-                        if old_ssr.getter('inroom') != 'True':
-                            old_ssr.setter('inroom', 'True')
-                        old_ssr.update()
+                if seen_ssrs:
+                    for sid in seen_ssrs:
+                        if not ssr_manager.registered(sid):
+                            new_ssr = Sensor()
+                            new_ssr.belong_gateway(g, gid)
+                            new_ssr.setter('inroom', 'True')
+                            new_ssr.setter('id', sid)
+                            if sid in ssr_infos:
+                                new_ssr.setter('name', ssr_infos[sid].get('name'))
+                            new_ssr.update()
+                            ssr_manager.add(sid, new_ssr)
+                        else:
+                            old_ssr = ssr_manager.terminal(sid)
+                            if old_ssr.getter('inroom') != 'True':
+                                old_ssr.setter('inroom', 'True')
+                            old_ssr.update()
             for sid in ssr_manager:
                 if ssr_manager.is_sensor(sid) and sid not in seen_ssrs:
                     if ssr_manager.terminal(sid).is_belong_gateway(gid):
@@ -318,6 +329,8 @@ class Sensor(Terminal):
     @staticmethod
     def get_data(gateway_instance, sid):
         info = gateway_instance.get_data(sid)
+        if info is None:
+            return None
         data = json.loads(info.get('data'))
         if data.get('error'):
             return None
@@ -366,7 +379,7 @@ class Manager(object):
             self._terminal_manager = TerminalManager(config.GATEWAYS, config.LOCATION)
             self._monitor = Monitor(self._terminal_manager, self._database_manager,
                                     config.DEVICES, config.SENSORS,
-                                    config.MONITOR_INTERVAL, config.DISCOVER_TIMEOUT)
+                                    config.MONITOR_INTERVAL, config.DISCOVER_TIMEOUT, config.SIMPLE_OUTPUT)
             self._monitor.daemon = True
             self._monitor.start()
     def add_device(self, did, params):
