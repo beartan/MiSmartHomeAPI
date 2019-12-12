@@ -98,23 +98,18 @@ async def service(interval):
             continue
 
         turn('lamp', data={'status': '1'})
-        _LOGGER.info(f'    [lamp] Turn on')
 
         temperature_thresold = 2200
         if seneor_operator('weather_ssr', 'temperature', '>', temperature_thresold):
             turn('fan', data={'status': '1'})
-            _LOGGER.info(f'    [fan] Turn on')
         else:
             turn('fan', data={'status': '0'})
-            _LOGGER.info(f'    [fan] Turn off')
 
         humidity_thresold = 2400
         if seneor_operator('weather_ssr', 'humidity', '<', humidity_thresold):
             turn('humidifier', data={'status': '1'})
-            _LOGGER.info(f'    [humidifier] Turn on')
         else:
             turn('humidifier', data={'status': '0'})
-            _LOGGER.info(f'    [humidifier] Turn off')
 
 if __name__ == '__main__':
     logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',

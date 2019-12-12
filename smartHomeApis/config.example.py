@@ -23,7 +23,7 @@ DEVICES = {
         'name': 'light',
     }, '236738672': {
         'token': 'd0706b31c18bb0e7baae320a80700ece',
-        'name': 'pulg',
+        'name': 'socket',
     }, '133638119': {
         'token': 'e1ab4a0a3e2fbc4c1501aa395fd795ec',
         'name': 'gateway',
